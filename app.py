@@ -181,22 +181,34 @@ try:
         login_with_retry(driver)
 
     while True:
-        if click_play_without_captcha(driver):
-            if click_roll_button(driver):
-                remaining_time = get_remaining_time(driver)
-                if remaining_time is None:
-                    print("Could not determine the remaining time. Using default of 65 minutes.")
-                    remaining_time = 65 * 60  # 65 minutes as fallback
-                print(f"Roll successful. Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds for the next attempt.")
-                time.sleep(remaining_time)
+        try:
+            if click_play_without_captcha(driver):
+                if click_roll_button(driver):
+                    remaining_time = get_remaining_time(driver)
+                    if remaining_time is None:
+                        print("Could not determine the remaining time. Using default of 65 minutes.")
+                        remaining_time = 65 * 60  # 65 minutes as fallback
+                    print(f"Roll successful. Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds for the next attempt.")
+                    time.sleep(remaining_time)
+                else:
+                    print("Retrying Roll button click.")
+                    time.sleep(10)
             else:
-                print("Retrying Roll button click.")
+                print("Retrying Play Without Captcha button click.")
                 time.sleep(10)
-        else:
-            print("Retrying Play Without Captcha button click.")
-            time.sleep(10)
+        except Exception as e:
+            print(f"Error in main loop: {e}")
+            # Optionally restart browser session if necessary
+            if 'disconnected' in str(e).lower():
+                print("Browser session lost. Restarting driver...")
+                driver.quit()
+                driver = webdriver.Remote(
+                    command_executor=SELENIUM_GRID_URL,
+                    options=chrome_options
+                )
+                if not load_cookies(driver):
+                    login_with_retry(driver)
 except Exception as e:
     print(f"Critical error occurred: {e}")
-finally:
-    driver.quit()
+
 
