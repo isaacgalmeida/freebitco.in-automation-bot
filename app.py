@@ -8,6 +8,7 @@ import json
 from dotenv import load_dotenv
 import os
 import re
+import requests
 import threading
 from selenium.common.exceptions import WebDriverException
 
@@ -162,16 +163,50 @@ def get_balance(driver):
         print(f"Erro ao capturar o saldo: {e}")
         return None
 
+# Função para enviar mensagem ao Telegram
+def send_telegram_message(token, chat_id, message):
+    try:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = {"chat_id": chat_id, "text": message}
+        response = requests.post(url, data=data)
+        if response.status_code == 200:
+            print("Mensagem enviada ao Telegram com sucesso.")
+        else:
+            print(f"Erro ao enviar mensagem ao Telegram: {response.status_code}, {response.text}")
+    except Exception as e:
+        print(f"Erro ao enviar mensagem ao Telegram: {e}")
+
+# Função para enviar o saldo atual ao Telegram a cada 24 horas
+def send_daily_balance(driver, interval=86400):
+    while True:
+        try:
+            balance = get_balance(driver)  # Captura o saldo atual
+            if balance:
+                message = f"Saldo atual em BTC: {balance}"
+                telegram_token = os.getenv("TELEGRAM_TOKEN")
+                telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+                if telegram_token and telegram_chat_id:
+                    send_telegram_message(telegram_token, telegram_chat_id, message)
+            else:
+                print("Não foi possível capturar o saldo.")
+        except Exception as e:
+            print(f"Erro ao enviar saldo diário ao Telegram: {e}")
+        # Aguarda o intervalo de 24 horas
+        time.sleep(interval)
 
 # Main execution loop
 try:
+    # Inicia thread para enviar saldo diário
+    daily_balance_thread = threading.Thread(target=send_daily_balance, args=(driver,), daemon=True)
+    daily_balance_thread.start()
+
     while True:
         driver = restart_driver()
         if not load_cookies(driver):
             login_with_retry(driver)
         # Capturar e exibir o saldo
         balance = get_balance(driver)
-        
+
         try:
             if click_roll_button(driver):
                 print("Roll successful. Waiting for the next round.")
