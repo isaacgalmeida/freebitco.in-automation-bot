@@ -8,6 +8,7 @@ import json
 from dotenv import load_dotenv
 import os
 import re
+import random
 
 # User agents for randomization
 user_agents = [
@@ -71,42 +72,51 @@ def save_cookies(driver):
     except Exception as e:
         print(f"Error saving cookies: {e}")
 
-# Perform login
-def login(driver):
+# Perform login and retry logic
+def login_with_retry(driver):
     url = 'https://freebitco.in/signup/?op=s'
     driver.get(url)
-    try:
-        # Click the Login button
-        login_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.XPATH, "//a[text()='LOGIN']"))
-        )
-        driver.execute_script("arguments[0].click();", login_button)
-        print("Login button clicked.")
+    while True:
+        try:
+            # Click the Login button
+            login_button = WebDriverWait(driver, 15).until(
+                EC.element_to_be_clickable((By.XPATH, "//a[text()='LOGIN']"))
+            )
+            driver.execute_script("arguments[0].click();", login_button)
+            print("Login button clicked.")
 
-        # Input email and password
-        email_field = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
-        )
-        password_field = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.ID, 'login_form_password'))
-        )
+            # Input email and password
+            email_field = WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
+            )
+            password_field = WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.ID, 'login_form_password'))
+            )
 
-        email = os.getenv("EMAIL")
-        password = os.getenv("PASSWORD")
-        email_field.send_keys(email)
-        password_field.send_keys(password)
+            email = os.getenv("EMAIL")
+            password = os.getenv("PASSWORD")
+            email_field.send_keys(email)
+            password_field.send_keys(password)
 
-        # Submit the login form
-        login_form_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.ID, "login_button"))
-        )
-        driver.execute_script("arguments[0].click();", login_form_button)
-        print("Login form submitted.")
+            # Submit the login form
+            login_form_button = WebDriverWait(driver, 15).until(
+                EC.element_to_be_clickable((By.ID, "login_button"))
+            )
+            driver.execute_script("arguments[0].click();", login_form_button)
+            print("Login form submitted.")
 
-        # Save cookies after successful login
-        save_cookies(driver)
-    except Exception as e:
-        print(f"Error during login: {e}")
+            # Check if still on the login page
+            if is_login_required(driver):
+                print("Login unsuccessful. Retrying in a few minutes.")
+                wait_time = random.randint(60, 180)  # Wait between 1 to 3 minutes
+                print(f"Waiting {wait_time} seconds before retrying...")
+                time.sleep(wait_time)
+            else:
+                print("Login successful.")
+                save_cookies(driver)  # Save cookies after successful login
+                break
+        except Exception as e:
+            print(f"Error during login attempt: {e}")
 
 # Check if login is required
 def is_login_required(driver):
@@ -147,28 +157,10 @@ def click_roll_button(driver):
         print(f"Roll Button not found or not clickable: {e}")
         return False
 
-# Extract and wait for retry time
-def handle_retry_time(driver):
-    try:
-        error_message = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'reward_point_redeem_result_box')]"))
-        ).text
-        match = re.search(r"wait (\d+) minutes? and (\d+) seconds?", error_message)
-        if match:
-            minutes = int(match.group(1))
-            seconds = int(match.group(2))
-            wait_time = minutes * 60 + seconds
-            print(f"Too many tries. Waiting for {wait_time} seconds.")
-            time.sleep(wait_time)
-        else:
-            print("Retry time not found in the error message.")
-    except Exception as e:
-        print(f"Error handling retry time: {e}")
-
 # Main execution loop
 try:
     if not load_cookies(driver):
-        login(driver)
+        login_with_retry(driver)
 
     while True:
         if click_play_without_captcha(driver):
@@ -176,8 +168,8 @@ try:
                 print("Roll successful. Waiting for the next attempt.")
                 time.sleep(3600)  # Wait 1 hour
             else:
-                print("Checking for retry time...")
-                handle_retry_time(driver)
+                print("Retrying Roll button click.")
+                time.sleep(10)
         else:
             print("Retrying Play Without Captcha button click.")
             time.sleep(10)
