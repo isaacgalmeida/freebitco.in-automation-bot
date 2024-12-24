@@ -8,6 +8,7 @@ import json
 from dotenv import load_dotenv
 import os
 import re
+import threading
 
 # User agents for randomization
 user_agents = [
@@ -157,8 +158,24 @@ def click_roll_button(driver):
         print(f"'Roll' button not found: {e}")
         return False
 
+# Keep session alive
+def keep_session_alive(driver, interval=300):
+    while True:
+        try:
+            time.sleep(interval)
+            driver.execute_script("return navigator.userAgent;")  # Sends a simple command to keep session alive
+            print("Heartbeat sent to keep session active.")
+        except Exception as e:
+            print(f"Error in heartbeat: {e}")
+            break
+
 # Main execution loop
 driver = restart_driver()
+
+# Start heartbeat thread
+heartbeat_thread = threading.Thread(target=keep_session_alive, args=(driver,), daemon=True)
+heartbeat_thread.start()
+
 try:
     if not load_cookies(driver):
         login_with_retry(driver)
