@@ -8,7 +8,7 @@ services:
     shm_size: "2g" # Memória compartilhada para evitar erros de memória no navegador
     restart: unless-stopped
     environment:
-      - SE_VNC_PASSWORD="Inform18@"
+      - SE_VNC_PASSWORD=Inform18@
       - SE_VNC_VIEW_ONLY=true
       - SE_SESSION_TIMEOUT=0 # Desabilitar timeout das sessões
       - SE_SESSION_REQUEST_TIMEOUT=0 # Desabilitar timeout na fila de sessões
