@@ -48,7 +48,7 @@ def load_cookies(driver):
         driver.get("https://freebitco.in")
         for cookie in cookies:
             driver.add_cookie(cookie)
-        driver.refresh()  # Refresh the page to apply cookies and ensure elements are valid
+        driver.refresh()  # Refresh the page to apply cookies
         print("Cookies loaded and page refreshed.")
         
         # Check if Play Without Captcha button exists after refresh
@@ -64,7 +64,7 @@ def load_cookies(driver):
     except FileNotFoundError:
         print("Cookies file not found. Login required.")
         return False
-    
+
 # Save cookies to a file after login
 def save_cookies(driver):
     try:
@@ -127,18 +127,7 @@ def login_with_retry(driver):
         except Exception as e:
             print(f"Error during login attempt: {e}")
 
-# Check if login is required
-def is_login_required(driver):
-    try:
-        # Check for the presence of the "LOGIN" button
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, "//a[text()='LOGIN']"))
-        )
-        return True  # Login button found, login is required
-    except:
-        return False  # Login button not found, login is not required
-
-# Função para clicar no botão "Play Without Captcha" com tolerância a "stale element"
+# Função para clicar no botão "Play Without Captcha"
 def click_play_without_captcha(driver):
     try:
         play_button = WebDriverWait(driver, 30).until(
@@ -152,7 +141,7 @@ def click_play_without_captcha(driver):
         print(f"Play Without Captcha Button not found or not clickable: {e}")
         return False
 
-# Função para clicar no botão "Roll" com tolerância a "stale element"
+# Função para clicar no botão "Roll"
 def click_roll_button(driver):
     try:
         roll_button_element = WebDriverWait(driver, 30).until(
@@ -163,22 +152,7 @@ def click_roll_button(driver):
         print("Roll Button clicked.")
         return True
     except Exception as e:
-        # Lidar com o erro "stale element reference"
-        if "stale element reference" in str(e):
-            print("Stale element reference detected. Retrying...")
-            try:
-                # Recarregar o elemento e tentar novamente
-                roll_button_element = WebDriverWait(driver, 30).until(
-                    EC.element_to_be_clickable((By.ID, "free_play_form_button"))
-                )
-                driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)
-                driver.execute_script("arguments[0].click();", roll_button_element)
-                print("Roll Button clicked after retry.")
-                return True
-            except Exception as retry_exception:
-                print(f"Retry failed: {retry_exception}")
-        else:
-            print(f"Roll Button not found or not clickable: {e}")
+        print(f"Roll Button not found or not clickable: {e}")
         return False
 
 # Get remaining time for next roll
