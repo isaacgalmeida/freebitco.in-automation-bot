@@ -164,7 +164,7 @@ def get_remaining_time(driver):
         time_remaining_element = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.ID, "time_remaining"))
         )
-        time_remaining_text = time_remaining_element.text
+        time_remaining_text = " ".join(time_remaining_element.text.split())  # Remove quebras de linha e espaços extras
         print(f"Time remaining for next roll: {time_remaining_text}")
         match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
         if match:
