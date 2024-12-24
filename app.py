@@ -184,6 +184,9 @@ try:
         if click_play_without_captcha(driver):
             if click_roll_button(driver):
                 remaining_time = get_remaining_time(driver)
+                if remaining_time is None:
+                    print("Could not determine the remaining time. Using default of 65 minutes.")
+                    remaining_time = 65 * 60  # 65 minutes as fallback
                 print(f"Roll successful. Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds for the next attempt.")
                 time.sleep(remaining_time)
             else:
@@ -196,3 +199,4 @@ except Exception as e:
     print(f"Critical error occurred: {e}")
 finally:
     driver.quit()
+
