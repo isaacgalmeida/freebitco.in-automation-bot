@@ -55,7 +55,7 @@ def load_cookies(driver):
         time.sleep(10)
         try:
             WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
+                EC.presence_of_element_located((By.ID, 'time_remaining'))
             )
             print("Cookies were sufficient. No login required.")
             return True
