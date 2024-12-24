@@ -1,0 +1,9 @@
+services:
+  selenium-chrome:
+    image: selenium/standalone-chrome:131.0
+    container_name: selenium-chrome
+    ports:
+      - "4444:4444" # Porta para WebDriver
+      - "7900:7900" # Porta para VNC
+    shm_size: "2g" # Tamanho da memória compartilhada
+    restart: unless-stopped

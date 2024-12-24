@@ -15,6 +15,7 @@ This is a Python Selenium-based bot designed to automate interactions with the F
 ## Requirements
 
 - Python 3.7+
+- Docker and Docker Compose (to run Selenium Chrome container)
 - Selenium WebDriver
 - ChromeDriver or Selenium Grid setup
 
@@ -40,14 +41,50 @@ This is a Python Selenium-based bot designed to automate interactions with the F
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the root directory and add your login credentials:
+4. Create a `.env` file in the root directory and add your login credentials and Selenium Grid URL:
 
    ```env
    EMAIL=your-email@example.com
    PASSWORD=your-password
+   SELENIUM_GRID_URL=http://localhost:4444/wd/hub
    ```
 
-5. Ensure you have ChromeDriver installed or a Selenium Grid URL. Update the Selenium Remote WebDriver URL in the script if necessary.
+5. Configure and start Selenium Chrome using Docker Compose.
+
+## Starting Selenium Chrome
+
+To run the bot, you first need to start a Selenium Chrome container. Use the provided `compose.yml` file:
+
+### Step 1: Create the Docker Compose File
+
+Create a `compose.yml` file in the root directory with the following content:
+
+```yaml
+services:
+  selenium-chrome:
+    image: selenium/standalone-chrome:131.0
+    container_name: selenium-chrome
+    ports:
+      - "4444:4444" # Port for WebDriver
+      - "7900:7900" # Port for VNC
+    shm_size: "2g" # Shared memory size
+    restart: unless-stopped
+```
+
+### Step 2: Start the Selenium Chrome Container
+
+Run the following command to start the container:
+
+```bash
+docker-compose up -d
+```
+
+This will:
+
+- Make Selenium WebDriver available at `http://localhost:4444/wd/hub`.
+- Expose a VNC interface at `http://localhost:7900` (useful for debugging).
+
+For more details, refer to the [official Selenium Chrome Docker image documentation](https://hub.docker.com/r/selenium/standalone-chrome).
 
 ## Usage
 
@@ -67,7 +104,8 @@ The bot will:
 ## Notes
 
 - Make sure the `cookies.json` file is writable. The bot saves cookies after a successful login.
-- Adjust the Selenium Remote WebDriver URL if using a different setup for Selenium.
+- Adjust the Selenium Remote WebDriver URL in the `.env` file if using a different setup for Selenium.
+- To debug browser interactions, you can connect to the VNC interface exposed on port `7900`.
 
 ## License
 
