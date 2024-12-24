@@ -22,7 +22,7 @@ random_user_agent = random.choice(user_agents)
 load_dotenv()
 
 # Get Selenium Grid URL from .env
-SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')
+SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')  # Default to localhost
 
 # Set Chrome options
 chrome_options = webdriver.ChromeOptions()
@@ -48,10 +48,10 @@ def load_cookies(driver):
         driver.get("https://freebitco.in")
         for cookie in cookies:
             driver.add_cookie(cookie)
-        driver.refresh()
+        driver.refresh()  # Refresh the page to apply cookies
         print("Cookies loaded and page refreshed.")
         
-        # Check if login is still required
+        # Check if login is still required after refreshing
         if is_login_required(driver):
             print("Cookies were not sufficient. Login required.")
             return False
@@ -70,16 +70,6 @@ def save_cookies(driver):
         print("Cookies saved successfully.")
     except Exception as e:
         print(f"Error saving cookies: {e}")
-
-# Check if login is required
-def is_login_required(driver):
-    try:
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.ID, "play_without_captchas_button"))
-        )
-        return False
-    except:
-        return True
 
 # Perform login and retry logic
 def login_with_retry(driver):
@@ -124,15 +114,26 @@ def login_with_retry(driver):
                     EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
                 )
                 print("Login successful. Play Without Captcha button is available.")
-                save_cookies(driver)
+                save_cookies(driver)  # Save cookies after successful login
                 break
             except:
                 print("Login unsuccessful. Retrying in a few minutes.")
-                wait_time = random.randint(60, 180)
+                wait_time = random.randint(60, 180)  # Wait between 1 to 3 minutes
                 print(f"Waiting {wait_time} seconds before retrying...")
                 time.sleep(wait_time)
         except Exception as e:
             print(f"Error during login attempt: {e}")
+
+# Check if login is required
+def is_login_required(driver):
+    try:
+        # Check for the presence of the "LOGIN" button
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, "//a[text()='LOGIN']"))
+        )
+        return True  # Login button found, login is required
+    except:
+        return False  # Login button not found, login is not required
 
 # Click the "Play Without Captcha" button
 def click_play_without_captcha(driver):
@@ -162,6 +163,25 @@ def click_roll_button(driver):
         print(f"Roll Button not found or not clickable: {e}")
         return False
 
+# Get remaining time for next roll
+def get_remaining_time(driver):
+    try:
+        time_remaining_element = WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.ID, "time_remaining"))
+        )
+        time_remaining_text = time_remaining_element.text
+        print(f"Time remaining for next roll: {time_remaining_text}")
+        # Extract minutes and seconds using regex
+        match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
+        if match:
+            minutes = int(match.group(1))
+            seconds = int(match.group(2))
+            total_seconds = minutes * 60 + seconds
+            return total_seconds
+    except:
+        print("Could not get remaining time. Using default of 65 minutes.")
+        return 65 * 60  # Default to 65 minutes
+
 # Main execution loop
 try:
     if not load_cookies(driver):
@@ -170,8 +190,9 @@ try:
     while True:
         if click_play_without_captcha(driver):
             if click_roll_button(driver):
-                print("Roll successful. Waiting for the next attempt.")
-                time.sleep(3600)
+                remaining_time = get_remaining_time(driver)
+                print(f"Roll successful. Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds for the next attempt.")
+                time.sleep(remaining_time)  # Wait until next roll
             else:
                 print("Retrying Roll button click.")
                 time.sleep(10)
