@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import os
 import re
 import threading
-from selenium.common.exceptions import WebDriverException, NoSuchElementException
+from selenium.common.exceptions import WebDriverException
 
 # User agents for randomization
 user_agents = [
@@ -51,18 +51,6 @@ def restart_driver(retries=5, delay=10):
             print(f"Error starting WebDriver: {e}. Retrying in {delay} seconds...")
             time.sleep(delay)
     raise RuntimeError("Failed to start WebDriver after multiple retries.")
-
-# Check and restart session if lost
-def check_session_and_restart(driver):
-    try:
-        driver.title  # Try to access the browser
-    except WebDriverException as e:
-        if "Cannot find session" in str(e):
-            print("Session lost. Restarting WebDriver...")
-            return restart_driver()
-        else:
-            raise
-    return driver
 
 # Load cookies from a file
 def load_cookies(driver):
@@ -128,20 +116,6 @@ def login_with_retry(driver):
         except Exception as e:
             print(f"Error during login attempt: {e}")
 
-# Click "Play Without Captcha"
-def click_play_without_captcha(driver):
-    try:
-        play_button = WebDriverWait(driver, 30).until(
-            EC.element_to_be_clickable((By.ID, "play_without_captchas_button"))
-        )
-        driver.execute_script("arguments[0].scrollIntoView(true);", play_button)
-        driver.execute_script("arguments[0].click();", play_button)
-        print("Clicked 'Play Without Captcha' button.")
-        return True
-    except Exception as e:
-        print(f"'Play Without Captcha' button not found: {e}")
-        return handle_time_remaining(driver)
-
 # Extract and handle time remaining
 def handle_time_remaining(driver):
     try:
@@ -154,11 +128,10 @@ def handle_time_remaining(driver):
         if match:
             remaining_time = int(match.group(1)) * 60 + int(match.group(2))
             print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
-            time.sleep(remaining_time)
-            return False
+            return remaining_time
     except Exception as inner_e:
         print(f"Could not determine time remaining: {inner_e}")
-    return False
+    return 3600  # Default wait time (1 hour)
 
 # Click the "Roll" button
 def click_roll_button(driver):
@@ -174,43 +147,27 @@ def click_roll_button(driver):
         print(f"'Roll' button not found: {e}")
         return False
 
-# Keep session alive
-def keep_session_alive(driver, interval=300):
-    while True:
-        try:
-            time.sleep(interval)
-            driver.execute_script("return navigator.userAgent;")
-            print("Heartbeat sent to keep session active.")
-        except Exception as e:
-            print(f"Error in heartbeat: {e}")
-            break
-
 # Main execution loop
-driver = restart_driver()
-
-# Start heartbeat thread
-heartbeat_thread = threading.Thread(target=keep_session_alive, args=(driver,), daemon=True)
-heartbeat_thread.start()
-
 try:
-    if not load_cookies(driver):
-        login_with_retry(driver)
-
     while True:
+        driver = restart_driver()
+        if not load_cookies(driver):
+            login_with_retry(driver)
+
         try:
-            driver = check_session_and_restart(driver)
-            if click_play_without_captcha(driver):
-                if click_roll_button(driver):
-                    print("Roll successful. Waiting for the next round.")
-                    time.sleep(3600)
-                else:
-                    print("Retrying 'Roll' button click.")
-                    time.sleep(10)
+            if click_roll_button(driver):
+                print("Roll successful. Waiting for the next round.")
+                time.sleep(3600)
             else:
-                print("Retrying 'Play Without Captcha' button click.")
+                print("Roll button not available. Checking remaining time...")
+                remaining_time = handle_time_remaining(driver)
+                print("Closing browser to save resources.")
+                driver.quit()
+                print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
+                time.sleep(remaining_time)
         except Exception as e:
             print(f"Error in main loop: {e}")
-            driver = restart_driver()
+            driver.quit()
 except Exception as e:
     print(f"Critical error: {e}")
     if driver:
