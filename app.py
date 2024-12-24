@@ -123,7 +123,25 @@ def click_play_without_captcha(driver):
         return True
     except Exception as e:
         print(f"'Play Without Captcha' button not found: {e}")
-        return False
+        return handle_time_remaining(driver)
+
+# Extract and handle time remaining
+def handle_time_remaining(driver):
+    try:
+        time_remaining_element = WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.ID, "time_remaining"))
+        )
+        time_remaining_text = " ".join(time_remaining_element.text.split())
+        print(f"Time remaining for next roll: {time_remaining_text}")
+        match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
+        if match:
+            remaining_time = int(match.group(1)) * 60 + int(match.group(2))
+            print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
+            time.sleep(remaining_time)
+            return False
+    except Exception as inner_e:
+        print(f"Could not determine time remaining: {inner_e}")
+    return False
 
 # Click the "Roll" button
 def click_roll_button(driver):
@@ -139,20 +157,6 @@ def click_roll_button(driver):
         print(f"'Roll' button not found: {e}")
         return False
 
-# Get remaining time
-def get_remaining_time(driver):
-    try:
-        time_remaining_element = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.ID, "time_remaining"))
-        )
-        time_remaining_text = " ".join(time_remaining_element.text.split())
-        match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
-        if match:
-            return int(match.group(1)) * 60 + int(match.group(2))
-    except:
-        print("Could not retrieve remaining time.")
-    return 65 * 60  # Default to 65 minutes if not found
-
 # Main execution loop
 driver = restart_driver()
 try:
@@ -163,15 +167,13 @@ try:
         try:
             if click_play_without_captcha(driver):
                 if click_roll_button(driver):
-                    remaining_time = get_remaining_time(driver)
-                    print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds.")
-                    time.sleep(remaining_time)
+                    print("Roll successful. Waiting for the next round.")
+                    time.sleep(3600)  # Default wait time
                 else:
                     print("Retrying 'Roll' button click.")
                     time.sleep(10)
             else:
                 print("Retrying 'Play Without Captcha' button click.")
-                time.sleep(10)
         except Exception as e:
             print(f"Error in main loop: {e}")
             driver = restart_driver()
