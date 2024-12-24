@@ -14,7 +14,6 @@ services:
       - SE_SESSION_REQUEST_TIMEOUT=300 # Tempo para aguardar antes de desistir de uma sessão
       - SE_NODE_MAX_SESSIONS=1 # Apenas 1 sessão por contêiner
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true # Permitir múltiplas sessões (se necessário)
-      - SE_START_XVFB=true # Ativa o modo headless
       - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false # Não remove processos de navegadores inativos automaticamente
       - SE_SESSION_RETRY_INTERVAL=5 # Tenta reconectar a sessão em caso de erro
       - SE_NODE_SESSION_TIMEOUT=0 # Timeout para sessões inativas
