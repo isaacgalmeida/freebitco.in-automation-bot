@@ -93,6 +93,10 @@ def login_with_retry(driver):
                 EC.presence_of_element_located((By.ID, 'login_form_password'))
             )
 
+            # Clear fields before entering new values
+            email_field.clear()
+            password_field.clear()
+
             email = os.getenv("EMAIL")
             password = os.getenv("PASSWORD")
             email_field.send_keys(email)
