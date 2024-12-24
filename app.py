@@ -135,7 +135,7 @@ def is_login_required(driver):
     except:
         return False  # Login button not found, login is not required
 
-# Click the "Play Without Captcha" button
+# Função para clicar no botão "Play Without Captcha" com tolerância a "stale element"
 def click_play_without_captcha(driver):
     try:
         play_button = WebDriverWait(driver, 30).until(
@@ -149,7 +149,7 @@ def click_play_without_captcha(driver):
         print(f"Play Without Captcha Button not found or not clickable: {e}")
         return False
 
-# Click the "Roll" button
+# Função para clicar no botão "Roll" com tolerância a "stale element"
 def click_roll_button(driver):
     try:
         roll_button_element = WebDriverWait(driver, 30).until(
@@ -160,7 +160,22 @@ def click_roll_button(driver):
         print("Roll Button clicked.")
         return True
     except Exception as e:
-        print(f"Roll Button not found or not clickable: {e}")
+        # Lidar com o erro "stale element reference"
+        if "stale element reference" in str(e):
+            print("Stale element reference detected. Retrying...")
+            try:
+                # Recarregar o elemento e tentar novamente
+                roll_button_element = WebDriverWait(driver, 30).until(
+                    EC.element_to_be_clickable((By.ID, "free_play_form_button"))
+                )
+                driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)
+                driver.execute_script("arguments[0].click();", roll_button_element)
+                print("Roll Button clicked after retry.")
+                return True
+            except Exception as retry_exception:
+                print(f"Retry failed: {retry_exception}")
+        else:
+            print(f"Roll Button not found or not clickable: {e}")
         return False
 
 # Get remaining time for next roll
