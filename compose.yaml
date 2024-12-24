@@ -11,11 +11,13 @@ services:
       - SE_VNC_PASSWORD=Inform18@
       - SE_VNC_VIEW_ONLY=true
       - SE_SESSION_TIMEOUT=0 # Desabilitar timeout das sessões
-      - SE_SESSION_REQUEST_TIMEOUT=0 # Desabilitar timeout na fila de sessões
-      - SE_NODE_MAX_SESSIONS=1 # Apenas 1 sessão por contêiner para evitar conflitos
-      - SE_NODE_OVERRIDE_MAX_SESSIONS=true # Permitir mais sessões se necessário
-      - SE_START_XVFB=true # Necessário para novos modos headless
-      - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false # Desabilitar limpeza automática de processos do navegador
-      - SE_SESSION_RETRY_INTERVAL=5 # Evita erros em sessões intermitentes
+      - SE_SESSION_REQUEST_TIMEOUT=300 # Tempo para aguardar antes de desistir de uma sessão
+      - SE_NODE_MAX_SESSIONS=1 # Apenas 1 sessão por contêiner
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true # Permitir múltiplas sessões (se necessário)
+      - SE_START_XVFB=true # Ativa o modo headless
+      - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false # Não remove processos de navegadores inativos automaticamente
+      - SE_SESSION_RETRY_INTERVAL=5 # Tenta reconectar a sessão em caso de erro
+      - SE_NODE_SESSION_TIMEOUT=0 # Timeout para sessões inativas
       - SE_GRID_TIMEOUT=300000 # Timeout para requests longos
+      - OTEL_EXPORTER_OTLP_ENDPOINT= # Desativa OpenTelemetry (não utilizado)
 
