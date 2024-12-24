@@ -8,8 +8,6 @@ import json
 from dotenv import load_dotenv
 import os
 import re
-import threading
-from selenium.common.exceptions import WebDriverException
 
 # User agents for randomization
 user_agents = [
@@ -33,26 +31,16 @@ chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument(f"user-agent={random_user_agent}")
 chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
 
-# Initialize driver as a global variable
-driver = None
+# Initialize WebDriver
+driver = webdriver.Remote(
+    command_executor=SELENIUM_GRID_URL,
+    options=chrome_options
+)
 
-# Function to restart WebDriver with retries
-def restart_driver(retries=5, delay=10):
-    global driver, SELENIUM_GRID_URL, chrome_options
-    for attempt in range(retries):
-        try:
-            print(f"Attempt {attempt + 1} to start WebDriver...")
-            if driver:
-                driver.quit()
-            driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
-            driver.maximize_window()
-            return driver
-        except WebDriverException as e:
-            print(f"Error starting WebDriver: {e}. Retrying in {delay} seconds...")
-            time.sleep(delay)
-    raise RuntimeError("Failed to start WebDriver after multiple retries.")
+# Maximize the browser window
+driver.maximize_window()
 
-# Load cookies from a file
+# Load cookies from a file, if available
 def load_cookies(driver):
     try:
         with open('cookies.json', 'r') as file:
@@ -60,15 +48,25 @@ def load_cookies(driver):
         driver.get("https://freebitco.in")
         for cookie in cookies:
             driver.add_cookie(cookie)
-        driver.refresh()
+        driver.refresh()  # Refresh the page to apply cookies
         print("Cookies loaded and page refreshed.")
+
+        # Wait for 10 seconds to check if Play Without Captcha button is present
         time.sleep(10)
-        return True
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.ID, 'time_remaining'))
+            )
+            print("Cookies were sufficient. No login required.")
+            return True
+        except:
+            print("Cookies were not sufficient. Login required.")
+            return False
     except FileNotFoundError:
         print("Cookies file not found. Login required.")
         return False
 
-# Save cookies to a file
+# Save cookies to a file after login
 def save_cookies(driver):
     try:
         with open('cookies.json', 'w') as file:
@@ -77,12 +75,13 @@ def save_cookies(driver):
     except Exception as e:
         print(f"Error saving cookies: {e}")
 
-# Perform login with retries
+# Perform login and retry logic
 def login_with_retry(driver):
     url = 'https://freebitco.in/signup/?op=s'
     driver.get(url)
     while True:
         try:
+            # Input email and password
             email_field = WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
             )
@@ -90,85 +89,124 @@ def login_with_retry(driver):
                 EC.presence_of_element_located((By.ID, 'login_form_password'))
             )
 
+            # Clear fields before entering new values
             email_field.clear()
             password_field.clear()
+
             email = os.getenv("EMAIL")
             password = os.getenv("PASSWORD")
             email_field.send_keys(email)
             password_field.send_keys(password)
 
-            login_button = WebDriverWait(driver, 15).until(
+            # Submit the login form
+            login_form_button = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.ID, "login_button"))
             )
-            driver.execute_script("arguments[0].click();", login_button)
+            driver.execute_script("arguments[0].click();", login_form_button)
             print("Login form submitted.")
 
+            # Check if Play Without Captcha button exists
             try:
                 WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
                 )
-                print("Login successful.")
-                save_cookies(driver)
+                print("Login successful. Play Without Captcha button is available.")
+                save_cookies(driver)  # Save cookies after successful login
                 break
             except:
-                print("Login failed. Retrying...")
-                time.sleep(random.randint(60, 180))
+                print("Login unsuccessful. Retrying in a few minutes.")
+                wait_time = random.randint(60, 180)  # Wait between 1 to 3 minutes
+                print(f"Waiting {wait_time} seconds before retrying...")
+                time.sleep(wait_time)
         except Exception as e:
             print(f"Error during login attempt: {e}")
 
-# Extract and handle time remaining
-def handle_time_remaining(driver):
+# Click the "Play Without Captcha" button
+def click_play_without_captcha(driver):
     try:
-        time_remaining_element = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.ID, "time_remaining"))
+        play_button = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.ID, "play_without_captchas_button"))
         )
-        time_remaining_text = " ".join(time_remaining_element.text.split())
-        print(f"Time remaining for next roll: {time_remaining_text}")
-        match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
-        if match:
-            remaining_time = int(match.group(1)) * 60 + int(match.group(2))
-            print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
-            return remaining_time
-    except Exception as inner_e:
-        print(f"Could not determine time remaining: {inner_e}")
-    return 3600  # Default wait time (1 hour)
+        driver.execute_script("arguments[0].scrollIntoView(true);", play_button)
+        driver.execute_script("arguments[0].click();", play_button)
+        print("Play Without Captcha Button clicked.")
+        return True
+    except Exception as e:
+        # Check if time_remaining exists when play_without_captchas_button is not found
+        try:
+            time_remaining_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.ID, "time_remaining"))
+            )
+            time_remaining_text = time_remaining_element.text
+            print(f"Time remaining for next roll (Play Without Captcha Button not found): {time_remaining_text}")
+            return False
+        except:
+            print(f"Play Without Captcha Button not found or not clickable: {e}")
+            return False
 
 # Click the "Roll" button
 def click_roll_button(driver):
     try:
-        roll_button = WebDriverWait(driver, 30).until(
+        roll_button_element = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "free_play_form_button"))
         )
-        driver.execute_script("arguments[0].scrollIntoView(true);", roll_button)
-        driver.execute_script("arguments[0].click();", roll_button)
-        print("Clicked 'Roll' button.")
+        driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)
+        driver.execute_script("arguments[0].click();", roll_button_element)
+        print("Roll Button clicked.")
         return True
     except Exception as e:
-        print(f"'Roll' button not found: {e}")
+        print(f"Roll Button not found or not clickable: {e}")
         return False
+
+# Get remaining time for next roll
+def get_remaining_time(driver):
+    try:
+        time_remaining_element = WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.ID, "time_remaining"))
+        )
+        time_remaining_text = " ".join(time_remaining_element.text.split())  # Remove quebras de linha e espaços extras
+        print(f"Time remaining for next roll: {time_remaining_text}")
+        match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
+        if match:
+            minutes = int(match.group(1))
+            seconds = int(match.group(2))
+            return minutes * 60 + seconds
+    except:
+        print("Could not get remaining time. Using default of 65 minutes.")
+        return 65 * 60
 
 # Main execution loop
 try:
-    while True:
-        driver = restart_driver()
-        if not load_cookies(driver):
-            login_with_retry(driver)
+    if not load_cookies(driver):
+        login_with_retry(driver)
 
+    while True:
         try:
-            if click_roll_button(driver):
-                print("Roll successful. Waiting for the next round.")
-                time.sleep(3600)
+            if click_play_without_captcha(driver):
+                if click_roll_button(driver):
+                    remaining_time = get_remaining_time(driver)
+                    if remaining_time is None:
+                        print("Could not determine the remaining time. Using default of 65 minutes.")
+                        remaining_time = 65 * 60  # 65 minutes as fallback
+                    print(f"Roll successful. Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds for the next attempt.")
+                    time.sleep(remaining_time)
+                else:
+                    print("Retrying Roll button click.")
+                    time.sleep(10)
             else:
-                print("Roll button not available. Checking remaining time...")
-                remaining_time = handle_time_remaining(driver)
-                print("Closing browser to save resources.")
-                driver.quit()
-                print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
-                time.sleep(remaining_time)
+                print("Retrying Play Without Captcha button click.")
+                time.sleep(10)
         except Exception as e:
             print(f"Error in main loop: {e}")
-            driver.quit()
+            # Optionally restart browser session if necessary
+            if 'disconnected' in str(e).lower():
+                print("Browser session lost. Restarting driver...")
+                driver.quit()
+                driver = webdriver.Remote(
+                    command_executor=SELENIUM_GRID_URL,
+                    options=chrome_options
+                )
+                if not load_cookies(driver):
+                    login_with_retry(driver)
 except Exception as e:
-    print(f"Critical error: {e}")
-    if driver:
-        driver.quit()
+    print(f"Critical error occurred: {e}")
