@@ -8,7 +8,6 @@ import json
 from dotenv import load_dotenv
 import os
 import re
-import random
 
 # User agents for randomization
 user_agents = [
@@ -23,7 +22,7 @@ random_user_agent = random.choice(user_agents)
 load_dotenv()
 
 # Get Selenium Grid URL from .env
-SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')  # Default to localhost
+SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')
 
 # Set Chrome options
 chrome_options = webdriver.ChromeOptions()
@@ -49,10 +48,10 @@ def load_cookies(driver):
         driver.get("https://freebitco.in")
         for cookie in cookies:
             driver.add_cookie(cookie)
-        driver.refresh()  # Refresh the page to apply cookies
+        driver.refresh()
         print("Cookies loaded and page refreshed.")
         
-        # Check if login is still required after refreshing
+        # Check if login is still required
         if is_login_required(driver):
             print("Cookies were not sufficient. Login required.")
             return False
@@ -71,6 +70,16 @@ def save_cookies(driver):
         print("Cookies saved successfully.")
     except Exception as e:
         print(f"Error saving cookies: {e}")
+
+# Check if login is required
+def is_login_required(driver):
+    try:
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.ID, "play_without_captchas_button"))
+        )
+        return False
+    except:
+        return True
 
 # Perform login and retry logic
 def login_with_retry(driver):
@@ -115,32 +124,21 @@ def login_with_retry(driver):
                     EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
                 )
                 print("Login successful. Play Without Captcha button is available.")
-                save_cookies(driver)  # Save cookies after successful login
+                save_cookies(driver)
                 break
             except:
                 print("Login unsuccessful. Retrying in a few minutes.")
-                wait_time = random.randint(60, 180)  # Wait between 1 to 3 minutes
+                wait_time = random.randint(60, 180)
                 print(f"Waiting {wait_time} seconds before retrying...")
                 time.sleep(wait_time)
         except Exception as e:
             print(f"Error during login attempt: {e}")
 
-# Check if login is required
-def is_login_required(driver):
-    try:
-        # Check for the presence of the "LOGIN" button
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, "//a[text()='LOGIN']"))
-        )
-        return True  # Login button found, login is required
-    except:
-        return False  # Login button not found, login is not required
-
 # Click the "Play Without Captcha" button
 def click_play_without_captcha(driver):
     try:
         play_button = WebDriverWait(driver, 30).until(
-            EC.element_to_be_clickable((By.ID, "play_without_captcha_button"))
+            EC.element_to_be_clickable((By.ID, "play_without_captchas_button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", play_button)
         driver.execute_script("arguments[0].click();", play_button)
@@ -173,7 +171,7 @@ try:
         if click_play_without_captcha(driver):
             if click_roll_button(driver):
                 print("Roll successful. Waiting for the next attempt.")
-                time.sleep(3600)  # Wait 1 hour
+                time.sleep(3600)
             else:
                 print("Retrying Roll button click.")
                 time.sleep(10)
