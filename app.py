@@ -151,7 +151,7 @@ def click_roll_button(driver):
 def handle_retry_time(driver):
     try:
         error_message = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "reward_point_redeem_result_box"))
+            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'reward_point_redeem_result_box')]"))
         ).text
         match = re.search(r"wait (\d+) minutes? and (\d+) seconds?", error_message)
         if match:
@@ -185,4 +185,3 @@ except Exception as e:
     print(f"Critical error occurred: {e}")
 finally:
     driver.quit()
-    
