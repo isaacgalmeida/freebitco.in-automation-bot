@@ -157,7 +157,7 @@ def get_balance(driver):
         )
         # Extrai o texto do elemento
         balance = balance_element.text.strip()
-        print(f"Saldo atual em BTC: {balance}")
+        print(f"Saldo BTC (freebitco): {balance}")
         return balance
     except Exception as e:
         print(f"Erro ao capturar o saldo: {e}")
@@ -180,7 +180,7 @@ def send_telegram_message(token, chat_id, message):
 def send_balance_to_telegram(driver):
     balance = get_balance(driver)
     if balance:
-        message = f"Saldo atual em BTC: {balance}"
+        message = f"Saldo BTC (freebitco): {balance}"
         telegram_token = os.getenv("TELEGRAM_TOKEN")
         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
         if telegram_token and telegram_chat_id:
