@@ -50,10 +50,11 @@ def load_cookies(driver):
             driver.add_cookie(cookie)
         driver.refresh()  # Refresh the page to apply cookies
         print("Cookies loaded and page refreshed.")
-        
-        # Check if Play Without Captcha button exists after refresh
+
+        # Wait for 10 seconds to check if Play Without Captcha button is present
+        time.sleep(10)
         try:
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
             )
             print("Cookies were sufficient. No login required.")
@@ -120,7 +121,7 @@ def login_with_retry(driver):
         except Exception as e:
             print(f"Error during login attempt: {e}")
 
-# Função para clicar no botão "Play Without Captcha"
+# Click the "Play Without Captcha" button
 def click_play_without_captcha(driver):
     try:
         play_button = WebDriverWait(driver, 30).until(
@@ -134,7 +135,7 @@ def click_play_without_captcha(driver):
         print(f"Play Without Captcha Button not found or not clickable: {e}")
         return False
 
-# Função para clicar no botão "Roll"
+# Click the "Roll" button
 def click_roll_button(driver):
     try:
         roll_button_element = WebDriverWait(driver, 30).until(
