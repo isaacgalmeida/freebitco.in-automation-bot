@@ -21,6 +21,7 @@ This is a Python Selenium-based bot designed to automate interactions with the F
 ## Installation
 
 1. Clone this repository:
+
    ```bash
    git clone https://github.com/your-username/freebitco-automation-bot.git
    cd freebitco-automation-bot
@@ -44,6 +45,8 @@ This is a Python Selenium-based bot designed to automate interactions with the F
    ```env
    EMAIL=your-email@example.com
    PASSWORD=your-password
+   TELEGRAM_TOKEN=tokentelegram
+   TELEGRAM_CHAT_ID=chatid
    SELENIUM_GRID_URL=http://localhost:4444/wd/hub
    ```
 
@@ -109,6 +112,6 @@ The bot will:
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
 
-
+```
 
 ```
