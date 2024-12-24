@@ -147,13 +147,31 @@ def click_roll_button(driver):
         print(f"'Roll' button not found: {e}")
         return False
 
+# Função para capturar o saldo atual
+def get_balance(driver):
+    try:
+        # Aguarda o elemento com ID 'balance' estar presente
+        balance_element = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "balance"))
+        )
+        # Extrai o texto do elemento
+        balance = balance_element.text.strip()
+        print(f"Saldo atual em BTC: {balance}")
+        return balance
+    except Exception as e:
+        print(f"Erro ao capturar o saldo: {e}")
+        return None
+
+
 # Main execution loop
 try:
     while True:
         driver = restart_driver()
         if not load_cookies(driver):
             login_with_retry(driver)
-
+        # Capturar e exibir o saldo
+        balance = get_balance(driver)
+        
         try:
             if click_roll_button(driver):
                 print("Roll successful. Waiting for the next round.")
