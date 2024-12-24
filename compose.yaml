@@ -10,8 +10,10 @@ services:
     environment:
       - SE_SESSION_TIMEOUT=0 # Desabilitar timeout das sessões
       - SE_SESSION_REQUEST_TIMEOUT=0 # Desabilitar timeout na fila de sessões
-      - SE_SESSION_RETRY_INTERVAL=1 # Reduzir o intervalo de verificação na fila para 1 segundo
       - SE_NODE_MAX_SESSIONS=1 # Apenas 1 sessão por contêiner para evitar conflitos
       - SE_NODE_OVERRIDE_MAX_SESSIONS=true # Permitir mais sessões se necessário
       - SE_START_XVFB=true # Necessário para novos modos headless
       - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false # Desabilitar limpeza automática de processos do navegador
+      - SE_SESSION_RETRY_INTERVAL=5 # Evita erros em sessões intermitentes
+      - SE_GRID_TIMEOUT=300000 # Timeout para requests longos
+
