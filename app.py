@@ -48,7 +48,7 @@ def load_cookies(driver):
         driver.get("https://freebitco.in")
         for cookie in cookies:
             driver.add_cookie(cookie)
-        driver.refresh()  # Refresh the page to apply cookies
+        # driver.refresh()  # Refresh the page to apply cookies
         print("Cookies loaded and page refreshed.")
         
         # Check if login is still required after refreshing
