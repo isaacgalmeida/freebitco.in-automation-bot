@@ -48,20 +48,23 @@ def load_cookies(driver):
         driver.get("https://freebitco.in")
         for cookie in cookies:
             driver.add_cookie(cookie)
-        # driver.refresh()  # Refresh the page to apply cookies
+        driver.refresh()  # Refresh the page to apply cookies and ensure elements are valid
         print("Cookies loaded and page refreshed.")
         
-        # Check if login is still required after refreshing
-        if is_login_required(driver):
-            print("Cookies were not sufficient. Login required.")
-            return False
-        else:
+        # Check if Play Without Captcha button exists after refresh
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
+            )
             print("Cookies were sufficient. No login required.")
             return True
+        except:
+            print("Cookies were not sufficient. Login required.")
+            return False
     except FileNotFoundError:
         print("Cookies file not found. Login required.")
         return False
-
+    
 # Save cookies to a file after login
 def save_cookies(driver):
     try:
