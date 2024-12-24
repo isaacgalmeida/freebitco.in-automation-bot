@@ -91,7 +91,7 @@ For more details, refer to the [official Selenium Chrome Docker image documentat
 Run the bot:
 
 ```bash
-python app.py
+python3 app.py
 ```
 
 The bot will:
