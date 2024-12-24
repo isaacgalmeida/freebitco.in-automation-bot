@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import re
 import threading
+from selenium.common.exceptions import WebDriverException, NoSuchElementException
 
 # User agents for randomization
 user_agents = [
@@ -35,20 +36,35 @@ chrome_options.add_experimental_option("prefs", {"profile.default_content_settin
 # Initialize driver as a global variable
 driver = None
 
-# Function to restart WebDriver
-def restart_driver():
+# Function to restart WebDriver with retries
+def restart_driver(retries=5, delay=10):
     global driver, SELENIUM_GRID_URL, chrome_options
+    for attempt in range(retries):
+        try:
+            print(f"Attempt {attempt + 1} to start WebDriver...")
+            if driver:
+                driver.quit()
+            driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
+            driver.maximize_window()
+            return driver
+        except WebDriverException as e:
+            print(f"Error starting WebDriver: {e}. Retrying in {delay} seconds...")
+            time.sleep(delay)
+    raise RuntimeError("Failed to start WebDriver after multiple retries.")
+
+# Check and restart session if lost
+def check_session_and_restart(driver):
     try:
-        if driver:
-            print("Restarting WebDriver...")
-            driver.quit()
-    except Exception as e:
-        print(f"Error while quitting driver: {e}")
-    driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
-    driver.maximize_window()
+        driver.title  # Try to access the browser
+    except WebDriverException as e:
+        if "Cannot find session" in str(e):
+            print("Session lost. Restarting WebDriver...")
+            return restart_driver()
+        else:
+            raise
     return driver
 
-# Load cookies from a file, if available
+# Load cookies from a file
 def load_cookies(driver):
     try:
         with open('cookies.json', 'r') as file:
@@ -163,7 +179,7 @@ def keep_session_alive(driver, interval=300):
     while True:
         try:
             time.sleep(interval)
-            driver.execute_script("return navigator.userAgent;")  # Sends a simple command to keep session alive
+            driver.execute_script("return navigator.userAgent;")
             print("Heartbeat sent to keep session active.")
         except Exception as e:
             print(f"Error in heartbeat: {e}")
@@ -182,10 +198,11 @@ try:
 
     while True:
         try:
+            driver = check_session_and_restart(driver)
             if click_play_without_captcha(driver):
                 if click_roll_button(driver):
                     print("Roll successful. Waiting for the next round.")
-                    time.sleep(3600)  # Default wait time
+                    time.sleep(3600)
                 else:
                     print("Retrying 'Roll' button click.")
                     time.sleep(10)
