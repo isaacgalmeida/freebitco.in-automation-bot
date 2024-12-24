@@ -132,8 +132,17 @@ def click_play_without_captcha(driver):
         print("Play Without Captcha Button clicked.")
         return True
     except Exception as e:
-        print(f"Play Without Captcha Button not found or not clickable: {e}")
-        return False
+        # Check if time_remaining exists when play_without_captchas_button is not found
+        try:
+            time_remaining_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.ID, "time_remaining"))
+            )
+            time_remaining_text = time_remaining_element.text
+            print(f"Time remaining for next roll (Play Without Captcha Button not found): {time_remaining_text}")
+            return False
+        except:
+            print(f"Play Without Captcha Button not found or not clickable: {e}")
+            return False
 
 # Click the "Roll" button
 def click_roll_button(driver):
