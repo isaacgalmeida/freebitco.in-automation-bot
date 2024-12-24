@@ -182,6 +182,17 @@ def click_roll_button(driver):
         print(f"Roll Button not found or not clickable: {e}")
         return False
 
+# Function to handle retries message
+def handle_retries_message(driver):
+    try:
+        retries_message = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "reward_point_redeem_result_error"))
+        )
+        retries_text = retries_message.text
+        print(f"Retries message detected: {retries_text}")
+    except Exception as e:
+        print(f"No retries message found: {e}")
+
 # Main execution loop
 try:
     # Load cookies and check if login is required
@@ -196,6 +207,7 @@ try:
                 print("Roll successful. Waiting for the next attempt.")
                 time.sleep(3600)  # Wait 1 hour before the next attempt
             else:
+                handle_retries_message(driver)
                 print("Retrying Roll button click.")
                 time.sleep(10)
         else:
