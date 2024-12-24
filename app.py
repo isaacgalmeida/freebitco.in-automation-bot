@@ -185,3 +185,4 @@ except Exception as e:
     print(f"Critical error occurred: {e}")
 finally:
     driver.quit()
+    
