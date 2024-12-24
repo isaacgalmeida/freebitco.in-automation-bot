@@ -31,19 +31,21 @@ chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument(f"user-agent={random_user_agent}")
 chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
 
+# Initialize driver as a global variable
+driver = None
+
 # Function to restart WebDriver
 def restart_driver():
-    global SELENIUM_GRID_URL, chrome_options
+    global driver, SELENIUM_GRID_URL, chrome_options
     try:
-        print("Restarting WebDriver...")
-        driver.quit()
+        if driver:
+            print("Restarting WebDriver...")
+            driver.quit()
     except Exception as e:
         print(f"Error while quitting driver: {e}")
-    return webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
-
-# Initialize WebDriver
-driver = restart_driver()
-driver.maximize_window()
+    driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
+    driver.maximize_window()
+    return driver
 
 # Load cookies from a file, if available
 def load_cookies(driver):
@@ -55,7 +57,7 @@ def load_cookies(driver):
             driver.add_cookie(cookie)
         driver.refresh()
         print("Cookies loaded and page refreshed.")
-        time.sleep(10)  # Wait for elements to load
+        time.sleep(10)
         return True
     except FileNotFoundError:
         print("Cookies file not found. Login required.")
@@ -148,10 +150,11 @@ def get_remaining_time(driver):
         if match:
             return int(match.group(1)) * 60 + int(match.group(2))
     except:
-        print("Could not retrieve remaining time. Using default of 65 minutes.")
-        return 65 * 60
+        print("Could not retrieve remaining time.")
+    return 65 * 60  # Default to 65 minutes if not found
 
 # Main execution loop
+driver = restart_driver()
 try:
     if not load_cookies(driver):
         login_with_retry(driver)
@@ -174,4 +177,5 @@ try:
             driver = restart_driver()
 except Exception as e:
     print(f"Critical error: {e}")
-    driver.quit()
+    if driver:
+        driver.quit()
