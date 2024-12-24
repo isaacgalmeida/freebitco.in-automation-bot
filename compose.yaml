@@ -18,5 +18,4 @@ services:
       - SE_SESSION_RETRY_INTERVAL=5 # Tenta reconectar a sessão em caso de erro
       - SE_NODE_SESSION_TIMEOUT=0 # Timeout para sessões inativas
       - SE_GRID_TIMEOUT=300000 # Timeout para requests longos
-      - OTEL_EXPORTER_OTLP_ENDPOINT= # Desativa OpenTelemetry (não utilizado)
 
