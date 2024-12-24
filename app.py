@@ -157,7 +157,7 @@ def click_play_without_captcha(driver):
     try:
         # Wait for the "Play Without Captcha" button to appear and be clickable
         play_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'PLAY WITHOUT CAPTCHA')]"))
+            EC.element_to_be_clickable((By.ID, "play_without_captcha_button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", play_button)  # Scroll to the button
         driver.execute_script("arguments[0].click();", play_button)  # Click using JavaScript
@@ -172,7 +172,7 @@ def click_roll_button(driver):
     try:
         # Ensure the button is visible
         roll_button_element = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'ROLL!')]"))
+            EC.element_to_be_clickable((By.ID, "free_play_form_button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)  # Scroll to the button
         driver.execute_script("arguments[0].click();", roll_button_element)  # Click using JavaScript
