@@ -1,6 +1,5 @@
 ### README.md
 
-````markdown
 # Freebitco.in Automation Bot
 
 This is a Python Selenium-based bot designed to automate interactions with the Freebitco.in website. The bot can perform actions like logging in, handling cookies, clicking the "Roll" button, and waiting for the next roll time.
@@ -26,7 +25,6 @@ This is a Python Selenium-based bot designed to automate interactions with the F
    git clone https://github.com/your-username/freebitco-automation-bot.git
    cd freebitco-automation-bot
    ```
-````
 
 2. Set up a Python virtual environment:
 
@@ -111,6 +109,6 @@ The bot will:
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
 
-```
+
 
 ```
