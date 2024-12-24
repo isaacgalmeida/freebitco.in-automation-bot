@@ -109,16 +109,19 @@ def login_with_retry(driver):
             driver.execute_script("arguments[0].click();", login_form_button)
             print("Login form submitted.")
 
-            # Check if still on the login page
-            if is_login_required(driver):
+            # Check if Play Without Captcha button exists
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
+                )
+                print("Login successful. Play Without Captcha button is available.")
+                save_cookies(driver)  # Save cookies after successful login
+                break
+            except:
                 print("Login unsuccessful. Retrying in a few minutes.")
                 wait_time = random.randint(60, 180)  # Wait between 1 to 3 minutes
                 print(f"Waiting {wait_time} seconds before retrying...")
                 time.sleep(wait_time)
-            else:
-                print("Login successful.")
-                save_cookies(driver)  # Save cookies after successful login
-                break
         except Exception as e:
             print(f"Error during login attempt: {e}")
 
