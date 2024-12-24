@@ -122,12 +122,11 @@ def is_login_required(driver):
 # Click the "Play Without Captcha" button
 def click_play_without_captcha(driver):
     try:
-        # Wait for the "Play Without Captcha" button to appear and be clickable
         play_button = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "play_without_captcha_button"))
         )
-        driver.execute_script("arguments[0].scrollIntoView(true);", play_button)  # Scroll to the button
-        driver.execute_script("arguments[0].click();", play_button)  # Click using JavaScript
+        driver.execute_script("arguments[0].scrollIntoView(true);", play_button)
+        driver.execute_script("arguments[0].click();", play_button)
         print("Play Without Captcha Button clicked.")
         return True
     except Exception as e:
@@ -137,39 +136,52 @@ def click_play_without_captcha(driver):
 # Click the "Roll" button
 def click_roll_button(driver):
     try:
-        # Ensure the button is visible
         roll_button_element = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "free_play_form_button"))
         )
-        driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)  # Scroll to the button
-        driver.execute_script("arguments[0].click();", roll_button_element)  # Click using JavaScript
+        driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)
+        driver.execute_script("arguments[0].click();", roll_button_element)
         print("Roll Button clicked.")
         return True
     except Exception as e:
         print(f"Roll Button not found or not clickable: {e}")
         return False
 
+# Extract and wait for retry time
+def handle_retry_time(driver):
+    try:
+        error_message = WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "reward_point_redeem_result_box"))
+        ).text
+        match = re.search(r"wait (\d+) minutes? and (\d+) seconds?", error_message)
+        if match:
+            minutes = int(match.group(1))
+            seconds = int(match.group(2))
+            wait_time = minutes * 60 + seconds
+            print(f"Too many tries. Waiting for {wait_time} seconds.")
+            time.sleep(wait_time)
+        else:
+            print("Retry time not found in the error message.")
+    except Exception as e:
+        print(f"Error handling retry time: {e}")
+
 # Main execution loop
 try:
-    # Load cookies and check if login is required
     if not load_cookies(driver):
-        login(driver)  # Perform login if cookies are not sufficient
+        login(driver)
 
     while True:
-        # Try clicking the "Play Without Captcha" button first
         if click_play_without_captcha(driver):
-            # After clicking "Play Without Captcha", attempt to click the "Roll" button
             if click_roll_button(driver):
                 print("Roll successful. Waiting for the next attempt.")
-                time.sleep(3600)  # Wait 1 hour before the next attempt
+                time.sleep(3600)  # Wait 1 hour
             else:
-                print("Retrying Roll button click.")
-                time.sleep(10)
+                print("Checking for retry time...")
+                handle_retry_time(driver)
         else:
             print("Retrying Play Without Captcha button click.")
             time.sleep(10)
 except Exception as e:
     print(f"Critical error occurred: {e}")
 finally:
-    # Close the browser in case of an error or shutdown
     driver.quit()
