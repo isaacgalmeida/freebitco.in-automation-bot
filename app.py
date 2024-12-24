@@ -80,13 +80,6 @@ def login_with_retry(driver):
     driver.get(url)
     while True:
         try:
-            # Click the Login button
-            login_button = WebDriverWait(driver, 15).until(
-                EC.element_to_be_clickable((By.XPATH, "//a[text()='LOGIN']"))
-            )
-            driver.execute_script("arguments[0].click();", login_button)
-            print("Login button clicked.")
-
             # Input email and password
             email_field = WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
@@ -163,16 +156,14 @@ def get_remaining_time(driver):
         )
         time_remaining_text = time_remaining_element.text
         print(f"Time remaining for next roll: {time_remaining_text}")
-        # Extract minutes and seconds using regex
         match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
         if match:
             minutes = int(match.group(1))
             seconds = int(match.group(2))
-            total_seconds = minutes * 60 + seconds
-            return total_seconds
+            return minutes * 60 + seconds
     except:
         print("Could not get remaining time. Using default of 65 minutes.")
-        return 65 * 60  # Default to 65 minutes
+        return 65 * 60
 
 # Main execution loop
 try:
@@ -184,7 +175,7 @@ try:
             if click_roll_button(driver):
                 remaining_time = get_remaining_time(driver)
                 print(f"Roll successful. Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds for the next attempt.")
-                time.sleep(remaining_time)  # Wait until next roll
+                time.sleep(remaining_time)
             else:
                 print("Retrying Roll button click.")
                 time.sleep(10)
