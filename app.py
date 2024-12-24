@@ -71,33 +71,7 @@ def save_cookies(driver):
     except Exception as e:
         print(f"Error saving cookies: {e}")
 
-# Function to handle the "Too Many Tries" message and wait
-def handle_too_many_tries(driver):
-    try:
-        # Wait for the error message to appear
-        error_message_element = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Too many tries')]"))
-        )
-        error_message_text = error_message_element.text
-        print(f"Error message detected: {error_message_text}")
-        
-        # Extract the time to wait from the error message using regex
-        match = re.search(r"wait (\d+) (seconds|minutes)", error_message_text)
-        if match:
-            wait_time = int(match.group(1))
-            unit = match.group(2)
-            if unit == "minutes":
-                wait_time *= 60  # Convert minutes to seconds
-            print(f"Waiting for {wait_time} seconds before retrying...")
-            time.sleep(wait_time)
-        else:
-            print("Could not extract wait time from error message. Retrying in 30 seconds.")
-            time.sleep(30)
-    except Exception as e:
-        print(f"Error while handling 'Too many tries' message: {e}")
-        time.sleep(30)  # Default wait time if error handling fails
-
-# Perform login, retrying if "Too Many Tries" is encountered
+# Perform login
 def login(driver):
     url = 'https://freebitco.in/signup/?op=s'
     driver.get(url)
@@ -109,39 +83,32 @@ def login(driver):
         driver.execute_script("arguments[0].click();", login_button)
         print("Login button clicked.")
 
-        while True:
-            try:
-                # Input email and password
-                email_field = WebDriverWait(driver, 15).until(
-                    EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
-                )
-                password_field = WebDriverWait(driver, 15).until(
-                    EC.presence_of_element_located((By.ID, 'login_form_password'))
-                )
+        # Input email and password
+        email_field = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
+        )
+        password_field = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.ID, 'login_form_password'))
+        )
 
-                email = os.getenv("EMAIL")
-                password = os.getenv("PASSWORD")
-                email_field.send_keys(email)
-                password_field.send_keys(password)
+        email = os.getenv("EMAIL")
+        password = os.getenv("PASSWORD")
+        email_field.send_keys(email)
+        password_field.send_keys(password)
 
-                # Submit the login form
-                login_form_button = WebDriverWait(driver, 15).until(
-                    EC.element_to_be_clickable((By.ID, "login_button"))
-                )
-                driver.execute_script("arguments[0].click();", login_form_button)
-                print("Login form submitted.")
-                break  # Exit the loop if login is successful
-            except Exception as e:
-                # Check for "Too many tries" message and handle it
-                print("Login attempt failed. Checking for 'Too many tries' message...")
-                handle_too_many_tries(driver)
+        # Submit the login form
+        login_form_button = WebDriverWait(driver, 15).until(
+            EC.element_to_be_clickable((By.ID, "login_button"))
+        )
+        driver.execute_script("arguments[0].click();", login_form_button)
+        print("Login form submitted.")
 
         # Save cookies after successful login
         save_cookies(driver)
     except Exception as e:
         print(f"Error during login: {e}")
 
-# Function to check if login is still required
+# Check if login is required
 def is_login_required(driver):
     try:
         # Check for the presence of the "LOGIN" button
@@ -152,11 +119,11 @@ def is_login_required(driver):
     except:
         return False  # Login button not found, login is not required
 
-# Function to click the "Play Without Captcha" button
+# Click the "Play Without Captcha" button
 def click_play_without_captcha(driver):
     try:
         # Wait for the "Play Without Captcha" button to appear and be clickable
-        play_button = WebDriverWait(driver, 15).until(
+        play_button = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "play_without_captcha_button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", play_button)  # Scroll to the button
@@ -167,11 +134,11 @@ def click_play_without_captcha(driver):
         print(f"Play Without Captcha Button not found or not clickable: {e}")
         return False
 
-# Function to click the "Roll" button
+# Click the "Roll" button
 def click_roll_button(driver):
     try:
         # Ensure the button is visible
-        roll_button_element = WebDriverWait(driver, 15).until(
+        roll_button_element = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "free_play_form_button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", roll_button_element)  # Scroll to the button
@@ -181,17 +148,6 @@ def click_roll_button(driver):
     except Exception as e:
         print(f"Roll Button not found or not clickable: {e}")
         return False
-
-# Function to handle retries message
-def handle_retries_message(driver):
-    try:
-        retries_message = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "reward_point_redeem_result_error"))
-        )
-        retries_text = retries_message.text
-        print(f"Retries message detected: {retries_text}")
-    except Exception as e:
-        print(f"No retries message found: {e}")
 
 # Main execution loop
 try:
@@ -207,7 +163,6 @@ try:
                 print("Roll successful. Waiting for the next attempt.")
                 time.sleep(3600)  # Wait 1 hour before the next attempt
             else:
-                handle_retries_message(driver)
                 print("Retrying Roll button click.")
                 time.sleep(10)
         else:
