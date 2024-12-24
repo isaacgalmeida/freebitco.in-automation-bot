@@ -7,6 +7,7 @@ import random
 import json
 from dotenv import load_dotenv
 import os
+import re
 
 # User agents for randomization
 user_agents = [
@@ -70,7 +71,33 @@ def save_cookies(driver):
     except Exception as e:
         print(f"Error saving cookies: {e}")
 
-# Perform login if cookies are not sufficient
+# Function to handle the "Too Many Tries" message and wait
+def handle_too_many_tries(driver):
+    try:
+        # Wait for the error message to appear
+        error_message_element = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Too many tries')]"))
+        )
+        error_message_text = error_message_element.text
+        print(f"Error message detected: {error_message_text}")
+        
+        # Extract the time to wait from the error message using regex
+        match = re.search(r"wait (\d+) (seconds|minutes)", error_message_text)
+        if match:
+            wait_time = int(match.group(1))
+            unit = match.group(2)
+            if unit == "minutes":
+                wait_time *= 60  # Convert minutes to seconds
+            print(f"Waiting for {wait_time} seconds before retrying...")
+            time.sleep(wait_time)
+        else:
+            print("Could not extract wait time from error message. Retrying in 30 seconds.")
+            time.sleep(30)
+    except Exception as e:
+        print(f"Error while handling 'Too many tries' message: {e}")
+        time.sleep(30)  # Default wait time if error handling fails
+
+# Perform login, retrying if "Too Many Tries" is encountered
 def login(driver):
     url = 'https://freebitco.in/signup/?op=s'
     driver.get(url)
@@ -82,25 +109,32 @@ def login(driver):
         driver.execute_script("arguments[0].click();", login_button)
         print("Login button clicked.")
 
-        # Input email and password
-        email_field = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
-        )
-        password_field = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.ID, 'login_form_password'))
-        )
+        while True:
+            try:
+                # Input email and password
+                email_field = WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
+                )
+                password_field = WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.ID, 'login_form_password'))
+                )
 
-        email = os.getenv("EMAIL")
-        password = os.getenv("PASSWORD")
-        email_field.send_keys(email)
-        password_field.send_keys(password)
+                email = os.getenv("EMAIL")
+                password = os.getenv("PASSWORD")
+                email_field.send_keys(email)
+                password_field.send_keys(password)
 
-        # Submit the login form
-        login_form_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.ID, "login_button"))
-        )
-        driver.execute_script("arguments[0].click();", login_form_button)
-        print("Login form submitted.")
+                # Submit the login form
+                login_form_button = WebDriverWait(driver, 15).until(
+                    EC.element_to_be_clickable((By.ID, "login_button"))
+                )
+                driver.execute_script("arguments[0].click();", login_form_button)
+                print("Login form submitted.")
+                break  # Exit the loop if login is successful
+            except Exception as e:
+                # Check for "Too many tries" message and handle it
+                print("Login attempt failed. Checking for 'Too many tries' message...")
+                handle_too_many_tries(driver)
 
         # Save cookies after successful login
         save_cookies(driver)
