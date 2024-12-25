@@ -1,6 +1,6 @@
 services:
   selenium-chrome:
-    image: selenium/standalone-chrome:131.0
+    image: selenium/standalone-chrome:131.0-20241225
     container_name: selenium-chrome
     ports:
       - "4444:4444" # Porta para WebDriver

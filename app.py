@@ -158,7 +158,7 @@ try:
 
         if click_roll_button(driver):
             print("Roll successful. Closing browser after 3 seconds.")
-            time.sleep(3)
+            time.sleep(60)
             driver.quit()
         else:
             print("Roll button not available. Checking remaining time...")
