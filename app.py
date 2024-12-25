@@ -10,7 +10,7 @@ import os
 import re
 import requests
 import threading
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import WebDriverException, TimeoutException
 
 # User agents for randomization
 user_agents = [
@@ -33,12 +33,12 @@ chrome_options.add_argument('--dns-server=8.8.8.8')
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument(f"user-agent={random_user_agent}")
 chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
-chrome_options.add_argument("--window-size=1920,1080")  # Ensures larger viewport
+chrome_options.add_argument("--window-size=1920,1080")  # Ensure larger viewport
 
 # Initialize driver as a global variable
 driver = None
 
-# Function to restart WebDriver with retries
+# Restart WebDriver with retries
 def restart_driver(retries=5, delay=10):
     global driver, SELENIUM_GRID_URL, chrome_options
     for attempt in range(retries):
@@ -54,23 +54,27 @@ def restart_driver(retries=5, delay=10):
             time.sleep(delay)
     raise RuntimeError("Failed to start WebDriver after multiple retries.")
 
-# Load cookies from a file
+# Load cookies from file
 def load_cookies(driver):
     try:
-        with open('cookies.json', 'r') as file:
-            cookies = json.load(file)
-        driver.get("https://freebitco.in")
-        for cookie in cookies:
-            driver.add_cookie(cookie)
-        driver.refresh()
-        print("Cookies loaded and page refreshed.")
-        time.sleep(10)
-        return True
-    except FileNotFoundError:
-        print("Cookies file not found. Login required.")
+        if os.path.exists('cookies.json'):
+            with open('cookies.json', 'r') as file:
+                cookies = json.load(file)
+            driver.get("https://freebitco.in")
+            for cookie in cookies:
+                driver.add_cookie(cookie)
+            driver.refresh()
+            print("Cookies loaded and page refreshed.")
+            time.sleep(10)
+            return True
+        else:
+            print("Cookies file not found. Login required.")
+            return False
+    except Exception as e:
+        print(f"Error loading cookies: {e}")
         return False
 
-# Save cookies to a file
+# Save cookies to file
 def save_cookies(driver):
     try:
         with open('cookies.json', 'w') as file:
@@ -85,7 +89,6 @@ def login_with_retry(driver):
     driver.get(url)
     while True:
         try:
-            time.sleep(2)  # Small delay to ensure elements are loaded
             email_field = WebDriverWait(driver, 15).until(
                 EC.visibility_of_element_located((By.ID, 'login_form_btc_address'))
             )
@@ -96,28 +99,30 @@ def login_with_retry(driver):
             email = os.getenv("EMAIL")
             password = os.getenv("PASSWORD")
 
-            # Using JavaScript to ensure input
-            driver.execute_script("arguments[0].value = arguments[1];", email_field, email)
-            driver.execute_script("arguments[0].value = arguments[1];", password_field, password)
+            email_field.clear()
+            email_field.send_keys(email)
+            password_field.clear()
+            password_field.send_keys(password)
 
             login_button = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.ID, "login_button"))
             )
-            driver.execute_script("arguments[0].click();", login_button)
+            login_button.click()
             print("Login form submitted.")
 
-            # Verify login success
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
             )
             print("Login successful.")
             save_cookies(driver)
             break
+        except TimeoutException:
+            print("Timeout occurred during login. Retrying...")
         except Exception as e:
             print(f"Error during login attempt: {e}. Retrying...")
             time.sleep(random.randint(60, 180))
 
-# Extract and handle time remaining
+# Handle time remaining
 def handle_time_remaining(driver):
     try:
         time_remaining_element = WebDriverWait(driver, 5).until(
@@ -130,8 +135,8 @@ def handle_time_remaining(driver):
             remaining_time = int(match.group(1)) * 60 + int(match.group(2))
             print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
             return remaining_time
-    except Exception as inner_e:
-        print(f"Could not determine time remaining: {inner_e}")
+    except Exception as e:
+        print(f"Could not determine time remaining: {e}")
     return 3600  # Default wait time (1 hour)
 
 # Click the "Roll" button
@@ -141,14 +146,14 @@ def click_roll_button(driver):
             EC.element_to_be_clickable((By.ID, "free_play_form_button"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", roll_button)
-        driver.execute_script("arguments[0].click();", roll_button)
+        roll_button.click()
         print("Clicked 'Roll' button.")
         return True
     except Exception as e:
         print(f"'Roll' button not found: {e}")
         return False
 
-# Capture current balance
+# Capture balance
 def get_balance(driver):
     try:
         balance_element = WebDriverWait(driver, 10).until(
@@ -168,13 +173,13 @@ def send_telegram_message(token, chat_id, message):
         data = {"chat_id": chat_id, "text": message}
         response = requests.post(url, data=data)
         if response.status_code == 200:
-            print("Message successfully sent to Telegram.")
+            print("Message sent to Telegram successfully.")
         else:
             print(f"Error sending message to Telegram: {response.status_code}, {response.text}")
     except Exception as e:
         print(f"Error sending message to Telegram: {e}")
 
-# Send current balance to Telegram
+# Send balance to Telegram
 def send_balance_to_telegram(driver):
     balance = get_balance(driver)
     if balance:
@@ -184,12 +189,6 @@ def send_balance_to_telegram(driver):
         if telegram_token and telegram_chat_id:
             send_telegram_message(telegram_token, telegram_chat_id, message)
 
-# Send daily balance to Telegram
-def send_daily_balance(driver, interval=86400):
-    while True:
-        send_balance_to_telegram(driver)
-        time.sleep(interval)
-
 # Main execution loop
 try:
     driver = restart_driver()
@@ -197,9 +196,6 @@ try:
         login_with_retry(driver)
 
     send_balance_to_telegram(driver)
-
-    daily_balance_thread = threading.Thread(target=send_daily_balance, args=(driver,), daemon=True)
-    daily_balance_thread.start()
 
     while True:
         if click_roll_button(driver):
