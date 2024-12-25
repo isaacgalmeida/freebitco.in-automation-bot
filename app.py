@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 import os
 import re
 import requests
-import threading
-from selenium.common.exceptions import WebDriverException, TimeoutException
+from selenium.common.exceptions import WebDriverException, TimeoutException, InvalidSessionIdException
 
 # User agents for randomization
 user_agents = [
@@ -45,7 +44,10 @@ def restart_driver(retries=5, delay=10):
         try:
             print(f"Attempt {attempt + 1} to start WebDriver...")
             if driver:
-                driver.quit()
+                try:
+                    driver.quit()
+                except WebDriverException as e:
+                    print(f"Error quitting driver during restart: {e}")
             driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
             driver.maximize_window()
             return driver
@@ -206,9 +208,16 @@ try:
             remaining_time = handle_time_remaining(driver)
             print("Closing browser to save resources.")
             driver.quit()
-            print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
             time.sleep(remaining_time)
+            driver = restart_driver()
+except InvalidSessionIdException as e:
+    print(f"Session lost: {e}. Restarting driver.")
+    driver = restart_driver()
 except Exception as e:
     print(f"Critical error: {e}")
+finally:
     if driver:
-        driver.quit()
+        try:
+            driver.quit()
+        except WebDriverException as e:
+            print(f"Error quitting driver: {e}")
