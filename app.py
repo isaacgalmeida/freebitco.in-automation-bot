@@ -8,7 +8,6 @@ import json
 from dotenv import load_dotenv
 import os
 import re
-import requests
 from selenium.common.exceptions import WebDriverException, TimeoutException, InvalidSessionIdException
 
 # User agents for randomization
@@ -37,24 +36,20 @@ chrome_options.add_argument("--window-size=1920,1080")  # Ensure larger viewport
 # Initialize driver as a global variable
 driver = None
 
-# Restart WebDriver with retries
-def restart_driver(retries=5, delay=10):
+# Restart WebDriver
+def restart_driver():
     global driver, SELENIUM_GRID_URL, chrome_options
-    for attempt in range(retries):
-        try:
-            print(f"Attempt {attempt + 1} to start WebDriver...")
-            if driver:
-                try:
-                    driver.quit()
-                except WebDriverException as e:
-                    print(f"Error quitting driver during restart: {e}")
-            driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
-            driver.maximize_window()
-            return driver
-        except WebDriverException as e:
-            print(f"Error starting WebDriver: {e}. Retrying in {delay} seconds...")
-            time.sleep(delay)
-    raise RuntimeError("Failed to start WebDriver after multiple retries.")
+    try:
+        if driver:
+            try:
+                driver.quit()
+            except WebDriverException:
+                pass
+        driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=chrome_options)
+        driver.maximize_window()
+        return driver
+    except WebDriverException as e:
+        raise RuntimeError(f"Failed to start WebDriver: {e}")
 
 # Load cookies from file
 def load_cookies(driver):
@@ -85,7 +80,7 @@ def save_cookies(driver):
     except Exception as e:
         print(f"Error saving cookies: {e}")
 
-# Perform login with retries
+# Perform login
 def login_with_retry(driver):
     url = 'https://freebitco.in/signup/?op=s'
     driver.get(url)
@@ -135,11 +130,10 @@ def handle_time_remaining(driver):
         match = re.search(r"(\d+)\s*Minutes.*?(\d+)\s*Seconds", time_remaining_text)
         if match:
             remaining_time = int(match.group(1)) * 60 + int(match.group(2))
-            print(f"Waiting {remaining_time // 60} minutes and {remaining_time % 60} seconds before retrying.")
             return remaining_time
     except Exception as e:
         print(f"Could not determine time remaining: {e}")
-    return 3600  # Default wait time (1 hour)
+    return 3900  # Default wait time (65 minutes)
 
 # Click the "Roll" button
 def click_roll_button(driver):
@@ -155,61 +149,23 @@ def click_roll_button(driver):
         print(f"'Roll' button not found: {e}")
         return False
 
-# Capture balance
-def get_balance(driver):
-    try:
-        balance_element = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "balance"))
-        )
-        balance = balance_element.text.strip()
-        print(f"BTC Balance (freebitco): {balance}")
-        return balance
-    except Exception as e:
-        print(f"Error capturing balance: {e}")
-        return None
-
-# Send message to Telegram
-def send_telegram_message(token, chat_id, message):
-    try:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        data = {"chat_id": chat_id, "text": message}
-        response = requests.post(url, data=data)
-        if response.status_code == 200:
-            print("Message sent to Telegram successfully.")
-        else:
-            print(f"Error sending message to Telegram: {response.status_code}, {response.text}")
-    except Exception as e:
-        print(f"Error sending message to Telegram: {e}")
-
-# Send balance to Telegram
-def send_balance_to_telegram(driver):
-    balance = get_balance(driver)
-    if balance:
-        message = f"BTC Balance (freebitco): {balance}"
-        telegram_token = os.getenv("TELEGRAM_TOKEN")
-        telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
-        if telegram_token and telegram_chat_id:
-            send_telegram_message(telegram_token, telegram_chat_id, message)
-
 # Main execution loop
 try:
-    driver = restart_driver()
-    if not load_cookies(driver):
-        login_with_retry(driver)
-
-    send_balance_to_telegram(driver)
-
     while True:
+        driver = restart_driver()
+        if not load_cookies(driver):
+            login_with_retry(driver)
+
         if click_roll_button(driver):
-            print("Roll successful. Waiting for the next round.")
-            time.sleep(3600)
+            print("Roll successful. Closing browser after 3 seconds.")
+            time.sleep(3)
+            driver.quit()
         else:
             print("Roll button not available. Checking remaining time...")
             remaining_time = handle_time_remaining(driver)
-            print("Closing browser to save resources.")
             driver.quit()
+            print(f"Waiting {remaining_time} seconds before reopening browser.")
             time.sleep(remaining_time)
-            driver = restart_driver()
 except InvalidSessionIdException as e:
     print(f"Session lost: {e}. Restarting driver.")
     driver = restart_driver()
