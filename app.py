@@ -41,6 +41,22 @@ chrome_options.add_argument(f"user-agent={random_user_agent}")
 chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
 chrome_options.add_argument("--window-size=1920,1080")  # Ensure larger viewport
 
+# Avoid Selenium detection
+chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+chrome_options.add_experimental_option('useAutomationExtension', False)
+
+# Optionally, run browser without headless mode (Cloudflare detects headless easily)
+chrome_options.add_argument("--start-maximized")
+
+# Set a proxy (optional, in case IP blocking is an issue)
+# chrome_options.add_argument('--proxy-server=http://your_proxy_server:port')
+
+# Enable verbose logging for debugging (optional)
+# chrome_options.add_argument('--enable-logging')
+# chrome_options.add_argument('--v=1')
+
+
 # Initialize driver as a global variable
 driver = None
 
