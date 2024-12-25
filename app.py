@@ -33,6 +33,7 @@ chrome_options.add_argument('--dns-server=8.8.8.8')
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument(f"user-agent={random_user_agent}")
 chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
+chrome_options.add_argument("--window-size=1920,1080")  # Ensures larger viewport
 
 # Initialize driver as a global variable
 driver = None
@@ -84,19 +85,20 @@ def login_with_retry(driver):
     driver.get(url)
     while True:
         try:
+            time.sleep(2)  # Small delay to ensure elements are loaded
             email_field = WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.ID, 'login_form_btc_address'))
+                EC.visibility_of_element_located((By.ID, 'login_form_btc_address'))
             )
             password_field = WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.ID, 'login_form_password'))
+                EC.visibility_of_element_located((By.ID, 'login_form_password'))
             )
 
-            email_field.clear()
-            password_field.clear()
             email = os.getenv("EMAIL")
             password = os.getenv("PASSWORD")
-            email_field.send_keys(email)
-            password_field.send_keys(password)
+
+            # Using JavaScript to ensure input
+            driver.execute_script("arguments[0].value = arguments[1];", email_field, email)
+            driver.execute_script("arguments[0].value = arguments[1];", password_field, password)
 
             login_button = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.ID, "login_button"))
@@ -104,18 +106,16 @@ def login_with_retry(driver):
             driver.execute_script("arguments[0].click();", login_button)
             print("Login form submitted.")
 
-            try:
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
-                )
-                print("Login successful.")
-                save_cookies(driver)
-                break
-            except:
-                print("Login failed. Retrying...")
-                time.sleep(random.randint(60, 180))
+            # Verify login success
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'play_without_captchas_button'))
+            )
+            print("Login successful.")
+            save_cookies(driver)
+            break
         except Exception as e:
-            print(f"Error during login attempt: {e}")
+            print(f"Error during login attempt: {e}. Retrying...")
+            time.sleep(random.randint(60, 180))
 
 # Extract and handle time remaining
 def handle_time_remaining(driver):
@@ -148,45 +148,43 @@ def click_roll_button(driver):
         print(f"'Roll' button not found: {e}")
         return False
 
-# Função para capturar o saldo atual
+# Capture current balance
 def get_balance(driver):
     try:
-        # Aguarda o elemento com ID 'balance' estar presente
         balance_element = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, "balance"))
         )
-        # Extrai o texto do elemento
         balance = balance_element.text.strip()
-        print(f"Saldo BTC (freebitco): {balance}")
+        print(f"BTC Balance (freebitco): {balance}")
         return balance
     except Exception as e:
-        print(f"Erro ao capturar o saldo: {e}")
+        print(f"Error capturing balance: {e}")
         return None
 
-# Função para enviar mensagem ao Telegram
+# Send message to Telegram
 def send_telegram_message(token, chat_id, message):
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         data = {"chat_id": chat_id, "text": message}
         response = requests.post(url, data=data)
         if response.status_code == 200:
-            print("Mensagem enviada ao Telegram com sucesso.")
+            print("Message successfully sent to Telegram.")
         else:
-            print(f"Erro ao enviar mensagem ao Telegram: {response.status_code}, {response.text}")
+            print(f"Error sending message to Telegram: {response.status_code}, {response.text}")
     except Exception as e:
-        print(f"Erro ao enviar mensagem ao Telegram: {e}")
+        print(f"Error sending message to Telegram: {e}")
 
-# Função para enviar o saldo atual ao Telegram
+# Send current balance to Telegram
 def send_balance_to_telegram(driver):
     balance = get_balance(driver)
     if balance:
-        message = f"Saldo BTC (freebitco): {balance}"
+        message = f"BTC Balance (freebitco): {balance}"
         telegram_token = os.getenv("TELEGRAM_TOKEN")
         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
         if telegram_token and telegram_chat_id:
             send_telegram_message(telegram_token, telegram_chat_id, message)
 
-# Função para enviar saldo diário ao Telegram a cada 24 horas
+# Send daily balance to Telegram
 def send_daily_balance(driver, interval=86400):
     while True:
         send_balance_to_telegram(driver)
@@ -194,15 +192,12 @@ def send_daily_balance(driver, interval=86400):
 
 # Main execution loop
 try:
-    # Reinicia o WebDriver
     driver = restart_driver()
     if not load_cookies(driver):
         login_with_retry(driver)
 
-    # Envia o saldo imediatamente após o login ou carregamento dos cookies
     send_balance_to_telegram(driver)
 
-    # Inicia thread para enviar saldo diário
     daily_balance_thread = threading.Thread(target=send_daily_balance, args=(driver,), daemon=True)
     daily_balance_thread.start()
 
