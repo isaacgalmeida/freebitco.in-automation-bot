@@ -8,13 +8,14 @@ import json
 from dotenv import load_dotenv
 import os
 import re
-from selenium.common.exceptions import WebDriverException, TimeoutException, InvalidSessionIdException
+from selenium.common.exceptions import (
+    WebDriverException,
+    TimeoutException,
+    InvalidSessionIdException
+)
 
-# User agents for randomization
-# user_agents = [
-#     'HTC: Mozilla/5.0 (Linux; Android 7.0; HTC 10 Build/NRD90M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.83 Mobile Safari/537.36',
-#     'Google Nexus: Mozilla/5.0 (Linux; U; Android-4.0.3; en-us; Galaxy Nexus Build/IML74K) AppleWebKit/535.7 (KHTML, like Gecko) CrMo/16.0.912.75 Mobile Safari/535.7',
-# ]
+# =============== CONFIGURAÇÕES GERAIS ===============
+
 user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36',  # Chrome Windows
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36',  # Chrome Mac
@@ -22,45 +23,39 @@ user_agents = [
     'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Mobile Safari/537.36',  # Chrome Android
     'Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',  # Safari iPhone
 ]
-
-
-# Choose a random user agent
 random_user_agent = random.choice(user_agents)
 
-# Load environment variables
 load_dotenv()
 
-# Get Selenium Grid URL from .env
-SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')  # Default to localhost
+SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')
 
-# Set Chrome options
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument('--dns-server=8.8.8.8')
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument(f"user-agent={random_user_agent}")
-chrome_options.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
-chrome_options.add_argument("--window-size=1920,1080")  # Ensure larger viewport
-
-# Avoid Selenium detection
+chrome_options.add_experimental_option(
+    "prefs", {"profile.default_content_setting_values.notifications": 2}
+)
+chrome_options.add_argument("--window-size=1920,1080")
 chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
 chrome_options.add_experimental_option('useAutomationExtension', False)
-
-# Optionally, run browser without headless mode (Cloudflare detects headless easily)
 chrome_options.add_argument("--start-maximized")
 
-# Set a proxy (optional, in case IP blocking is an issue)
-# chrome_options.add_argument('--proxy-server=http://your_proxy_server:port')
-
-# Enable verbose logging for debugging (optional)
-# chrome_options.add_argument('--enable-logging')
-# chrome_options.add_argument('--v=1')
-
-
-# Initialize driver as a global variable
 driver = None
 
-# Restart WebDriver
+
+# =============== FUNÇÕES AUXILIARES ===============
+
+def force_click(driver, element):
+    """
+    Faz scroll para o elemento e usa JavaScript para clicar,
+    evitando erros de 'element click intercepted'.
+    """
+    driver.execute_script("arguments[0].scrollIntoView(true);", element)
+    time.sleep(1)  # Pequena pausa para garantir o scroll
+    driver.execute_script("arguments[0].click();", element)
+
 def restart_driver():
     global driver, SELENIUM_GRID_URL, chrome_options
     try:
@@ -75,7 +70,6 @@ def restart_driver():
     except WebDriverException as e:
         raise RuntimeError(f"Failed to start WebDriver: {e}")
 
-# Load cookies from file
 def load_cookies(driver):
     try:
         if os.path.exists('cookies.json'):
@@ -95,7 +89,6 @@ def load_cookies(driver):
         print(f"Error loading cookies: {e}")
         return False
 
-# Save cookies to file
 def save_cookies(driver):
     try:
         with open('cookies.json', 'w') as file:
@@ -104,7 +97,6 @@ def save_cookies(driver):
     except Exception as e:
         print(f"Error saving cookies: {e}")
 
-# Perform login
 def login_with_retry(driver):
     url = 'https://freebitco.in/signup/?op=s'
     driver.get(url)
@@ -128,7 +120,7 @@ def login_with_retry(driver):
             login_button = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.ID, "login_button"))
             )
-            login_button.click()
+            force_click(driver, login_button)  # Usa o force_click
             print("Login form submitted.")
 
             WebDriverWait(driver, 10).until(
@@ -143,7 +135,24 @@ def login_with_retry(driver):
             print(f"Error during login attempt: {e}. Retrying...")
             time.sleep(random.randint(60, 180))
 
-# Handle time remaining
+def click_play_without_captcha(driver):
+    """
+    Tenta clicar no botão 'play_without_captchas_button', se ele estiver visível,
+    usando 'force_click' para evitar interceptações.
+    Aguarda 3 segundos após o clique.
+    """
+    try:
+        play_btn = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, 'play_without_captchas_button'))
+        )
+        force_click(driver, play_btn)
+        print("Clicked 'play_without_captchas_button'. Waiting 3 seconds...")
+        time.sleep(3)
+    except TimeoutException:
+        print("play_without_captchas_button not found. Skipping.")
+    except Exception as e:
+        print(f"Error clicking 'play_without_captchas_button': {e}")
+
 def handle_time_remaining(driver):
     try:
         time_remaining_element = WebDriverWait(driver, 5).until(
@@ -157,47 +166,101 @@ def handle_time_remaining(driver):
             return remaining_time
     except Exception as e:
         print(f"Could not determine time remaining: {e}")
-    return 3900  # Default wait time (65 minutes)
+    return 3900  # Se não conseguir achar, espera 65 minutos
 
-# Click the "Roll" button
 def click_roll_button(driver):
+    """
+    Clica no botão 'free_play_form_button' (Roll) se estiver disponível,
+    usando 'force_click' para evitar interceptações.
+    Retorna True se conseguiu clicar, False caso contrário.
+    """
     try:
         roll_button = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "free_play_form_button"))
         )
-        driver.execute_script("arguments[0].scrollIntoView(true);", roll_button)
-        roll_button.click()
+        force_click(driver, roll_button)
         print("Clicked 'Roll' button.")
         return True
     except Exception as e:
-        print(f"'Roll' button not found: {e}")
+        print(f"'Roll' button not found or not clickable: {e}")
         return False
 
-# Main execution loop
+def confirm_roll_and_refresh_if_needed(driver, max_attempts=3):
+    """
+    Após clicar em 'Roll', tenta confirmar se o elemento 'time_remaining' aparece.
+    - Se não encontrar, recarrega a página e tenta novamente.
+    - Retorna True se confirmar a existência do 'time_remaining' dentro das tentativas,
+      caso contrário, retorna False.
+    """
+    attempt = 0
+    while attempt < max_attempts:
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "time_remaining"))
+            )
+            # Se achamos o time_remaining, sucesso
+            return True
+        except TimeoutException:
+            attempt += 1
+            print(f"time_remaining not found. Refreshing page (attempt {attempt}/{max_attempts}).")
+            driver.refresh()
+    return False
+
+
+# =============== LOOP PRINCIPAL ===============
 try:
     while True:
         driver = restart_driver()
+
+        # Se não conseguir carregar cookies, faz login
         if not load_cookies(driver):
             login_with_retry(driver)
 
+        # Clica no botão 'play_without_captchas_button' antes de 'Roll'
+        click_play_without_captcha(driver)
+
+        # Tenta clicar no botão "Roll"
         if click_roll_button(driver):
-            print("Roll successful. Closing browser after 3 seconds.")
+            # Verifica se o 'time_remaining' aparece, recarregando se necessário
+            if confirm_roll_and_refresh_if_needed(driver):
+                print("Roll successful. Closing browser after 3 seconds.")
+            else:
+                print("Could not confirm 'time_remaining' after multiple attempts.")
+
+            # Aguarda 60s (ou ajuste se quiser)
             time.sleep(60)
-            driver.quit()
+            try:
+                driver.quit()
+            except WebDriverException:
+                pass
         else:
             print("Roll button not available. Checking remaining time...")
             remaining_time = handle_time_remaining(driver)
-            driver.quit()
+            try:
+                driver.quit()
+            except WebDriverException:
+                pass
             print(f"Waiting {remaining_time} seconds before reopening browser.")
             time.sleep(remaining_time)
+
 except InvalidSessionIdException as e:
-    print(f"Session lost: {e}. Restarting driver.")
+    print(f"Session lost: {e}.")
+    try:
+        driver.quit()
+    except WebDriverException:
+        pass
     driver = restart_driver()
+
 except Exception as e:
     print(f"Critical error: {e}")
+    try:
+        driver.quit()
+    except WebDriverException as ex:
+        print(f"Error quitting driver after exception: {ex}")
+
 finally:
     if driver:
         try:
             driver.quit()
         except WebDriverException as e:
-            print(f"Error quitting driver: {e}")
+            print(f"Error quitting driver (final block): {e}")
