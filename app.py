@@ -46,6 +46,27 @@ driver = None
 
 
 # =============== FUNÇÕES AUXILIARES ===============
+# Send message to Telegram
+def send_telegram_message(token, chat_id, message):
+    try:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = {"chat_id": chat_id, "text": message}
+        response = requests.post(url, data=data)
+        if response.status_code == 200:
+            print("Message sent to Telegram successfully.")
+        else:
+            print(f"Error sending message to Telegram: {response.status_code}, {response.text}")
+    except Exception as e:
+        print(f"Error sending message to Telegram: {e}")
+# Send balance to Telegram
+def send_balance_to_telegram(driver):
+    balance = get_balance(driver)
+    if balance:
+        message = f"BTC Balance (freebitco): {balance}"
+        telegram_token = os.getenv("TELEGRAM_TOKEN")
+        telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        if telegram_token and telegram_chat_id:
+            send_telegram_message(telegram_token, telegram_chat_id, message)
 
 def force_click(driver, element):
     """
@@ -216,6 +237,8 @@ try:
         if not load_cookies(driver):
             login_with_retry(driver)
 
+        send_balance_to_telegram(driver)
+        
         # Clica no botão 'play_without_captchas_button' antes de 'Roll'
         click_play_without_captcha(driver)
 
