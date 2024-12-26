@@ -8,6 +8,7 @@ import json
 from dotenv import load_dotenv
 import os
 import re
+import requests  # Lembre-se de importar requests para o send_telegram_message
 from selenium.common.exceptions import (
     WebDriverException,
     TimeoutException,
@@ -44,9 +45,22 @@ chrome_options.add_argument("--start-maximized")
 
 driver = None
 
+# Armazena o timestamp do último alerta diário enviado.
+last_daily_alert_time = 0
+
 
 # =============== FUNÇÕES AUXILIARES ===============
-# Send message to Telegram
+
+# Exemplo de como obter o saldo na página (ajuste conforme o ID real do elemento de saldo)
+def get_balance(driver):
+    try:
+        # Exemplo: se o elemento do saldo tiver ID "balance" ou algo assim
+        balance_element = driver.find_element(By.ID, "balance")
+        return balance_element.text
+    except Exception:
+        return None
+
+# Envia mensagem para Telegram
 def send_telegram_message(token, chat_id, message):
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -58,7 +72,8 @@ def send_telegram_message(token, chat_id, message):
             print(f"Error sending message to Telegram: {response.status_code}, {response.text}")
     except Exception as e:
         print(f"Error sending message to Telegram: {e}")
-# Send balance to Telegram
+
+# Envia o saldo atual para Telegram
 def send_balance_to_telegram(driver):
     balance = get_balance(driver)
     if balance:
@@ -67,6 +82,17 @@ def send_balance_to_telegram(driver):
         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
         if telegram_token and telegram_chat_id:
             send_telegram_message(telegram_token, telegram_chat_id, message)
+
+# Checa se passaram 24 horas desde o último alerta e, se sim, envia saldo para Telegram
+def check_and_send_daily_balance(driver):
+    global last_daily_alert_time
+    # 24 horas em segundos
+    daily_interval = 24 * 60 * 60
+
+    # Se a diferença entre agora e o último envio >= 24h, envia o alerta
+    if (time.time() - last_daily_alert_time) >= daily_interval:
+        send_balance_to_telegram(driver)
+        last_daily_alert_time = time.time()
 
 def force_click(driver, element):
     """
@@ -141,7 +167,7 @@ def login_with_retry(driver):
             login_button = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.ID, "login_button"))
             )
-            force_click(driver, login_button)  # Usa o force_click
+            force_click(driver, login_button)
             print("Login form submitted.")
 
             WebDriverWait(driver, 10).until(
@@ -157,11 +183,6 @@ def login_with_retry(driver):
             time.sleep(random.randint(60, 180))
 
 def click_play_without_captcha(driver):
-    """
-    Tenta clicar no botão 'play_without_captchas_button', se ele estiver visível,
-    usando 'force_click' para evitar interceptações.
-    Aguarda 3 segundos após o clique.
-    """
     try:
         play_btn = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, 'play_without_captchas_button'))
@@ -190,11 +211,6 @@ def handle_time_remaining(driver):
     return 3900  # Se não conseguir achar, espera 65 minutos
 
 def click_roll_button(driver):
-    """
-    Clica no botão 'free_play_form_button' (Roll) se estiver disponível,
-    usando 'force_click' para evitar interceptações.
-    Retorna True se conseguiu clicar, False caso contrário.
-    """
     try:
         roll_button = WebDriverWait(driver, 30).until(
             EC.element_to_be_clickable((By.ID, "free_play_form_button"))
@@ -207,19 +223,12 @@ def click_roll_button(driver):
         return False
 
 def confirm_roll_and_refresh_if_needed(driver, max_attempts=3):
-    """
-    Após clicar em 'Roll', tenta confirmar se o elemento 'time_remaining' aparece.
-    - Se não encontrar, recarrega a página e tenta novamente.
-    - Retorna True se confirmar a existência do 'time_remaining' dentro das tentativas,
-      caso contrário, retorna False.
-    """
     attempt = 0
     while attempt < max_attempts:
         try:
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.ID, "time_remaining"))
             )
-            # Se achamos o time_remaining, sucesso
             return True
         except TimeoutException:
             attempt += 1
@@ -237,8 +246,12 @@ try:
         if not load_cookies(driver):
             login_with_retry(driver)
 
+        # Checa se devemos enviar o alerta diário (a cada 24h)
+        check_and_send_daily_balance(driver)
+
+        # Envia o saldo atual toda vez que entra no loop (já existia no código)
         send_balance_to_telegram(driver)
-        
+
         # Clica no botão 'play_without_captchas_button' antes de 'Roll'
         click_play_without_captcha(driver)
 
@@ -250,7 +263,7 @@ try:
             else:
                 print("Could not confirm 'time_remaining' after multiple attempts.")
 
-            # Aguarda 60s (ou ajuste se quiser)
+            # Aguarda 60s antes de fechar o navegador
             time.sleep(60)
             try:
                 driver.quit()
