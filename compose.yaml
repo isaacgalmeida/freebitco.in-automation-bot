@@ -17,4 +17,4 @@ services:
       - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false # Desabilitar limpeza automática de processos do navegador
       - SE_SESSION_RETRY_INTERVAL=5 # Evita erros em sessões intermitentes
       - SE_GRID_TIMEOUT=300000 # Timeout para requests longos
-
+    cpus: "1.0"
