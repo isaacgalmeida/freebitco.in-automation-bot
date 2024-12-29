@@ -64,6 +64,7 @@ def handle_cloudflare_captcha(sb):
         # Verifica se o Captcha foi resolvido com sucesso
         verify_success(sb)
         print("Captcha resolvido com sucesso!")
+        sb.sleep(10)
         save_screenshot(sb, "03-captcha_resolved.jpg")
         return True
     except Exception as e:
