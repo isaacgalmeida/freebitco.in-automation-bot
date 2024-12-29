@@ -57,88 +57,60 @@ def inject_cookies(driver, cookies_file, url):
         logging.warning("Cookies file not found. Manual login required.")
         return False
 
-def get_balance(driver):
+def click_roll_button(driver):
     """
-    Gets the BTC balance from the page.
+    Clicks the 'Roll' button after resolving the CAPTCHA.
     """
     try:
-        balance_element = driver.ele("#balance", timeout=10)
-        if balance_element:
-            logging.info(f"BTC Balance found: {balance_element.text}")
-            return balance_element.text
+        roll_button = driver.ele('#free_play_form_button', timeout=10)
+        if roll_button:
+            roll_button.click()
+            time.sleep(10)
+            logging.info("Clicked 'Roll' button.")
+            return True
         else:
-            logging.warning("Balance element not found.")
-            return None
+            logging.warning("'Roll' button not found.")
+            return False
     except Exception as e:
-        logging.error(f"Error getting balance: {e}")
-        return None
+        logging.error(f"'Roll' button not found or not clickable: {e}")
+        return False
 
-def send_telegram_message(token, chat_id, message):
+def get_time_remaining(driver):
     """
-    Sends a message to Telegram.
-    """
-    try:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        data = {"chat_id": chat_id, "text": message}
-        response = requests.post(url, data=data)
-        if response.status_code == 200:
-            logging.info("Message sent to Telegram successfully.")
-        else:
-            logging.error(f"Error sending message to Telegram: {response.status_code}, {response.text}")
-    except Exception as e:
-        logging.error(f"Error sending message to Telegram: {e}")
-
-def parse_time_remaining(time_remaining):
-    """
-    Extracts the number of minutes from the 'time_remaining' text.
-    """
-    try:
-        # Assume format "XX Minutes YY Seconds"
-        minutes = int(time_remaining.split("Minutes")[0].strip())
-        return minutes
-    except Exception as e:
-        logging.error(f"Error parsing 'time_remaining': {e}")
-        return None
-
-def check_time_remaining_and_send(driver):
-    """
-    Checks if 'time_remaining' div is present. If yes, sends balance and time remaining to Telegram.
+    Retrieves the time remaining from the 'time_remaining' div.
     """
     try:
         time_remaining_div = driver.ele('#time_remaining', timeout=10)
         if time_remaining_div:
-            # Remove line breaks and process the text
-            time_remaining = time_remaining_div.text.replace('\n', ' ')
-            balance = get_balance(driver)
-
-            telegram_token = os.getenv("TELEGRAM_TOKEN")
-            telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
-
-            if telegram_token and telegram_chat_id:
-                if balance and time_remaining:
-                    message = f"BTC Balance: {balance}\nTime Remaining: {time_remaining}"
-                elif balance:
-                    message = f"BTC Balance: {balance}\nTime Remaining: Not available."
-                else:
-                    message = "Unable to retrieve BTC balance or time remaining."
-                send_telegram_message(telegram_token, telegram_chat_id, message)
-
-            # Parse time_remaining to extract minutes
-            minutes = parse_time_remaining(time_remaining)
-            if minutes is not None:
-                wait_time = (minutes + 3) * 60
-                logging.info(f"Waiting {minutes + 3} minutes before retrying.")
-            else:
-                wait_time = 63 * 60
-                logging.info("Could not parse 'time_remaining'. Waiting 63 minutes by default.")
-
-            time.sleep(wait_time)
-            return True
+            time_remaining_text = time_remaining_div.text.replace('\n', ' ')
+            minutes = int(time_remaining_text.split('Minutes')[0].strip())
+            logging.info(f"Time remaining: {minutes} minutes.")
+            return minutes
         else:
-            return False
+            logging.warning("'time_remaining' div not found.")
+            return None
     except Exception as e:
-        logging.error(f"Error checking 'time_remaining': {e}")
-        return False
+        logging.error(f"Error getting 'time_remaining': {e}")
+        return None
+
+def send_balance_to_telegram(driver):
+    """
+    Sends the current balance and time remaining to Telegram.
+    """
+    try:
+        balance = driver.ele("#balance", timeout=10).text
+        time_remaining = driver.ele("#time_remaining", timeout=10).text.replace('\n', ' ')
+
+        telegram_token = os.getenv("TELEGRAM_TOKEN")
+        telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+        if telegram_token and telegram_chat_id:
+            message = f"BTC Balance: {balance}\nTime Remaining: {time_remaining}"
+            url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+            requests.post(url, data={"chat_id": telegram_chat_id, "text": message})
+            logging.info("Balance and time remaining sent to Telegram.")
+    except Exception as e:
+        logging.error(f"Error sending balance to Telegram: {e}")
 
 def main():
     isHeadless = os.getenv('HEADLESS', 'false').lower() == 'true'
@@ -181,10 +153,15 @@ def main():
             else:
                 logging.warning("Cookies could not be applied. Please check your cookies.json file.")
 
-            # Check if 'time_remaining' div is already present
-            if check_time_remaining_and_send(driver):
-                continue  # Restart loop after waiting
+            # Check if the 'time_remaining' div is present
+            time_remaining = get_time_remaining(driver)
+            if time_remaining is not None:
+                wait_time = (time_remaining + 1) * 60  # Add 1 minute for safety
+                logging.info(f"Waiting {time_remaining + 1} minutes before retrying.")
+                time.sleep(wait_time)
+                continue
 
+            # If 'time_remaining' is not present, resolve CAPTCHA and click 'Roll'
             cf_bypasser = CloudflareBypasser(driver)
             cf_bypasser.click_verification_button()
 
@@ -192,19 +169,18 @@ def main():
             logging.info("Waiting 10 seconds before clicking 'Roll' button.")
             time.sleep(10)
 
-            # Click the Roll button
-            roll_button = driver.ele('#free_play_form_button', timeout=30)
-            if roll_button:
-                roll_button.click()
-                logging.info("Clicked 'Roll' button.")
-
-                # Check if 'time_remaining' appears after clicking the button
-                if check_time_remaining_and_send(driver):
-                    continue
+            if click_roll_button(driver):
+                # Check if 'time_remaining' div appears after clicking
+                time_remaining = get_time_remaining(driver)
+                if time_remaining is not None:
+                    send_balance_to_telegram(driver)
+                    wait_time = (time_remaining + 1) * 60
+                    logging.info(f"Roll successful. Waiting {time_remaining + 1} minutes before retrying.")
+                    time.sleep(wait_time)
                 else:
-                    logging.warning("Roll did not complete successfully.")
+                    logging.warning("Roll did not complete successfully. Retrying...")
             else:
-                logging.warning("Could not find 'Roll' button.")
+                logging.warning("Could not click 'Roll' button. Retrying...")
 
         except Exception as e:
             logging.error("An error occurred: %s", str(e))
