@@ -1,117 +1,108 @@
-### README.md
+# FreeBitco.in Automation Bot
 
-# Freebitco.in Automation Bot
+Este é um projeto para automatizar a interação com o site [FreeBitco.in](https://freebitco.in), incluindo a realização automática do login e o clique no botão "Roll". Além disso, o bot notifica o saldo e o tempo restante para o próximo clique via Telegram.
 
-This is a Python Selenium-based bot designed to automate interactions with the Freebitco.in website. The bot can perform actions like logging in, handling cookies, clicking the "Roll" button, and waiting for the next roll time.
+---
 
-## Features
+## Requisitos
 
-- Automatically logs in using saved cookies or credentials.
-- Handles the "Too many tries" error by waiting the required time before retrying.
-- Clicks the "Roll" button and waits for the cooldown period.
-- Continuous operation in a loop.
+- **Python 3.8+**
+- **Google Chrome** instalado no sistema.
+- **Pacotes Python** listados em `requirements.txt`.
 
-## Requirements
+---
 
-- Python 3.7+
-- Docker and Docker Compose (to run Selenium Chrome container)
-- Selenium WebDriver
-- ChromeDriver or Selenium Grid setup
+## Configuração
 
-## Installation
+### 1. **Instalar Dependências**
 
-1. Clone this repository:
-
-   ```bash
-   git clone https://github.com/your-username/freebitco-automation-bot.git
-   cd freebitco-automation-bot
-   ```
-
-2. Set up a Python virtual environment:
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Create a `.env` file in the root directory and add your login credentials and Selenium Grid URL:
-
-   ```env
-   EMAIL=your-email@example.com
-   PASSWORD=your-password
-   TELEGRAM_TOKEN=tokentelegram
-   TELEGRAM_CHAT_ID=chatid
-   SELENIUM_GRID_URL=http://localhost:4444/wd/hub
-   ```
-
-5. Configure and start Selenium Chrome using Docker Compose.
-
-## Starting Selenium Chrome
-
-To run the bot, you first need to start a Selenium Chrome container. Use the provided `compose.yml` file:
-
-### Step 1: Create the Docker Compose File
-
-Create a `compose.yml` file in the root directory with the following content:
-
-```yaml
-services:
-  selenium-chrome:
-    image: selenium/standalone-chrome:131.0
-    container_name: selenium-chrome
-    ports:
-      - "4444:4444" # Port for WebDriver
-      - "7900:7900" # Port for VNC
-    shm_size: "2g" # Shared memory size
-    restart: unless-stopped
-```
-
-### Step 2: Start the Selenium Chrome Container
-
-Run the following command to start the container:
+Antes de tudo, instale as dependências do projeto usando o `pip`:
 
 ```bash
-docker-compose up -d
+pip install -r requirements.txt
 ```
 
-This will:
+---
 
-- Make Selenium WebDriver available at `http://localhost:4444/wd/hub`.
-- Expose a VNC interface at `http://localhost:7900` (useful for debugging).
+### 2. **Gerar Cookies com `getcookies.py`**
 
-For more details, refer to the [official Selenium Chrome Docker image documentation](https://hub.docker.com/r/selenium/standalone-chrome).
+1. Execute o script `getcookies.py`:
 
-## Usage
+   ```bash
+   python getcookies.py
+   ```
 
-Run the bot:
+2. Será aberta uma janela do navegador. Acesse o site [FreeBitco.in](https://freebitco.in) e faça login manualmente.
+3. Após concluir o login, volte ao terminal e digite `salvar` para capturar os cookies.
+4. Verifique se o arquivo `cookies.json` foi gerado na pasta do projeto.
+
+---
+
+### 3. **Configurar Variáveis de Ambiente**
+
+Crie um arquivo `.env` na raiz do projeto e adicione as seguintes variáveis:
+
+```env
+TELEGRAM_TOKEN=seu_bot_token
+TELEGRAM_CHAT_ID=seu_chat_id
+HEADLESS=false
+CHROME_PATH=/caminho/para/google-chrome
+```
+
+- **`TELEGRAM_TOKEN`**: O token do seu bot no Telegram.
+- **`TELEGRAM_CHAT_ID`**: O ID do chat onde as mensagens serão enviadas.
+- **`HEADLESS`**: Define se o navegador será executado em modo headless (sem interface gráfica). Use `true` para headless ou `false` para com interface gráfica.
+- **`CHROME_PATH`**: Caminho para o executável do Google Chrome.
+
+---
+
+### 4. **Executar o Bot**
+
+Execute o script principal `app.py`:
 
 ```bash
-python3 app.py
+python app.py
 ```
 
-The bot will:
+---
 
-1. Attempt to load cookies to log in without needing credentials.
-2. Log in using the `.env` credentials if cookies are not found or invalid.
-3. Continuously check for the "Roll" button and click it when available.
-4. Wait for the cooldown period and repeat.
+## Funcionamento
 
-## Notes
+1. O bot utiliza os cookies gerados para fazer login automático no site.
+2. Fecha popups e banners automaticamente antes de interagir com o site.
+3. Clica no botão "Roll" e, caso haja um tempo restante (`time_remaining`), aguarda o tempo especificado antes de tentar novamente.
+4. Notifica o saldo atual e o tempo restante via Telegram após cada clique.
 
-- Make sure the `cookies.json` file is writable. The bot saves cookies after a successful login.
-- Adjust the Selenium Remote WebDriver URL in the `.env` file if using a different setup for Selenium.
-- To debug browser interactions, you can connect to the VNC interface exposed on port `7900`.
+---
 
-## License
+## Logs
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+Os logs das execuções são salvos no arquivo `cloudflare_bypass.log`, na raiz do projeto.
 
-```
+---
 
-```
+## Solução de Problemas
+
+1. **Erro ao executar `getcookies.py`**:
+
+   - Certifique-se de que o Google Chrome está instalado e configurado corretamente.
+   - Verifique se o caminho para o Chrome no `.env` (`CHROME_PATH`) está correto.
+
+2. **Não consegue clicar no botão "Roll"**:
+
+   - Verifique se há popups ou banners bloqueando o botão. O script tenta fechar automaticamente, mas revise a função `close_popups`.
+
+3. **Mensagens de erro ao enviar para o Telegram**:
+   - Certifique-se de que as variáveis `TELEGRAM_TOKEN` e `TELEGRAM_CHAT_ID` estão configuradas corretamente no arquivo `.env`.
+
+---
+
+## Contribuição
+
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou enviar PRs com melhorias ou correções.
+
+---
+
+## Licença
+
+Este projeto está sob a licença MIT. Consulte o arquivo `LICENSE` para mais detalhes.
