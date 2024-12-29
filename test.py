@@ -32,7 +32,7 @@ def inject_cookies(sb, cookies_file, url):
                 sb.driver.add_cookie(cookie)
 
             # Atualiza a página após injetar os cookies
-            sb.refresh()
+            
             print("Cookies injetados com sucesso e página atualizada!")
             save_screenshot(sb, "02-after_cookies.jpg")
             return True
