@@ -77,7 +77,7 @@ def main():
     with SB(uc=True, test=True) as sb:
         # Define a posição e o tamanho da janela
         sb.driver.set_window_position(0, 0)
-        sb.driver.set_window_size(1280, 700)
+        sb.driver.set_window_size(1280, 720)
 
         # Injeta cookies e tenta fazer login automaticamente
         if inject_cookies(sb, cookies_file, url):
