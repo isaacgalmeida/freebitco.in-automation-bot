@@ -57,6 +57,19 @@ def inject_cookies(driver, cookies_file, url):
         logging.warning("Cookies file not found. Manual login required.")
         return False
 
+def close_popups(driver):
+    """
+    Closes any popups or banners on the page.
+    """
+    try:
+        # Example: Check for the popup and close it
+        popup = driver.ele('button:contains("NO THANKS")', timeout=3, show_errmsg=False)
+        if popup:
+            popup.click()
+            logging.info("Popup closed.")
+    except Exception as e:
+        logging.warning(f"No popup to close or error closing popup: {e}")
+
 def click_roll_button(driver):
     """
     Clicks the 'Roll' button after resolving the CAPTCHA.
@@ -152,6 +165,9 @@ def main():
                 logging.info("Cookies applied. Automatic login successful.")
             else:
                 logging.warning("Cookies could not be applied. Please check your cookies.json file.")
+
+            # Close any popups
+            close_popups(driver)
 
             # Check if the 'time_remaining' div is present
             time_remaining = get_time_remaining(driver)
