@@ -46,25 +46,32 @@ def inject_cookies(sb, cookies_file, url):
 
 def handle_cloudflare_captcha(sb):
     """
-    Resolve o Captcha Cloudflare usando CDP e o seletor do ID especificado.
-    Rolamos até o elemento antes de clicar para garantir que esteja visível.
+    Resolve o Captcha Cloudflare usando CDP e interage com o checkbox Captcha.
     """
     try:
         print("Tentando resolver o Captcha usando CDP...")
         sb.activate_cdp_mode("https://freebitco.in")
         sb.sleep(2)  # Pausa para garantir que o Captcha seja carregado
 
-        # Rolamos até o captcha para garantir que fique visível na janela
-        sb.scroll_to("#freeplay_form_cf_turnstile div")
+        # Rolamos até o Captcha checkbox para garantir que fique visível
+        sb.scroll_to("input[type='checkbox']")
         sb.sleep(1)
 
-        # Clique físico via PyAutoGUI (CDP)
-        sb.cdp.gui_click_element("#freeplay_form_cf_turnstile div")
-        print("Captcha clicado com sucesso!")
-        save_screenshot(sb, "03-captcha_clicked.jpg")
+        # Clique físico via PyAutoGUI no Captcha checkbox
+        sb.cdp.gui_click_element("input[type='checkbox']")
+        print("Captcha checkbox clicado com sucesso!")
+        save_screenshot(sb, "03-captcha_checkbox_clicked.jpg")
 
-        # Aguarda 10 segundos após o clique no Captcha
+        # Aguarda 10 segundos após clicar no Captcha
         sb.sleep(10)
+
+        # Clique no botão "Play Without Captcha"
+        sb.scroll_to("#play_without_captchas_button")
+        sb.cdp.gui_click_element("#play_without_captchas_button")
+        print("Botão 'Play Without Captcha' clicado!")
+        save_screenshot(sb, "04-play_without_captcha_clicked.jpg")
+
+        sb.sleep(10)  # Aguarda o processamento do botão
     except Exception as e:
         print(f"Erro ao resolver o Captcha: {e}")
         save_screenshot(sb, "03-captcha_error.jpg")
@@ -98,14 +105,14 @@ def main():
             sb.assert_element("#free_play_form_button", timeout=10)
             sb.click("#free_play_form_button")
             print("Botão ROLL clicado!")
-            save_screenshot(sb, "04-roll_clicked.jpg")
+            save_screenshot(sb, "05-roll_clicked.jpg")
 
             # Aguarda 10 segundos após clicar no botão ROLL
             sb.sleep(10)
 
         except Exception as e:
             print(f"Erro ao clicar no botão ROLL: {e}")
-            save_screenshot(sb, "04-roll_error.jpg")
+            save_screenshot(sb, "05-roll_error.jpg")
 
 if __name__ == "__main__":
     main()
