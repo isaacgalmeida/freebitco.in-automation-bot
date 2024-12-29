@@ -1,28 +1,24 @@
 import os
 import json
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from dotenv import load_dotenv
+from CloudflareBypasser import CloudflareBypasser
+from DrissionPage import ChromiumPage
 
 load_dotenv()
 
-def inject_cookies(driver, cookies_file, url):
+def inject_cookies(driver, cookies_file):
     """
-    Injeta cookies para login no site e atualiza a página.
+    Injeta cookies para login no site.
     """
-    driver.get(url)
     if os.path.exists(cookies_file):
         try:
             with open(cookies_file, "r") as f:
                 cookies = json.load(f)
 
             for cookie in cookies:
-                driver.add_cookie(cookie)
+                driver.add_cookies(cookie)
 
-            driver.refresh()
+            driver.reload()
             print("Cookies injetados com sucesso e página atualizada!")
             return True
         except Exception as e:
@@ -36,51 +32,52 @@ def main():
     url = "https://freebitco.in"
     cookies_file = "cookies.json"
 
-    # Caminho para o Chrome instalado
-    chrome_executable_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-
-    # Configuração do Chrome
-    chrome_options = Options()
-    chrome_options.binary_location = chrome_executable_path
-    chrome_options.add_argument("--start-maximized")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--remote-debugging-port=9222")  # Porta de depuração
-
-    # Inicializa o WebDriver do Selenium
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    # Inicializa o ChromiumPage
+    driver = ChromiumPage()
 
     try:
         # Abre a URL especificada
         driver.get(url)
 
+        # Usa o CloudflareBypasser para contornar proteção do site
+        cf_bypasser = CloudflareBypasser(driver)
+        if cf_bypasser.bypass():
+            print("Proteção Cloudflare contornada com sucesso!")
+        else:
+            print("Falha ao contornar a proteção do Cloudflare.")
+            driver.close_driver()
+            return
+
         # Injeta cookies
-        if inject_cookies(driver, cookies_file, url):
+        if inject_cookies(driver, cookies_file):
             print("Login automático realizado com sucesso!")
         else:
             print("Não foi possível fazer login automático. Verifique os cookies.")
-            driver.quit()
+            driver.close_driver()
             return
 
         # Rolar até o elemento e clicar
         try:
-            captcha_element = driver.find_element(By.CSS_SELECTOR, "#freeplay_form_cf_turnstile div")
-            driver.execute_script("arguments[0].scrollIntoView();", captcha_element)
-            captcha_element.click()
-            print("Captcha resolvido!")
+            captcha_element = driver.ele('#freeplay_form_cf_turnstile div')
+            if captcha_element:
+                driver.run_js("arguments[0].scrollIntoView();", captcha_element)
+                captcha_element.click()
+                print("Captcha resolvido!")
 
-            # Após resolver o Captcha, tenta clicar no botão ROLL
-            roll_button = driver.find_element(By.CSS_SELECTOR, "#free_play_form_button")
-            roll_button.click()
-            print("Botão ROLL clicado!")
-
+                # Após resolver o Captcha, tenta clicar no botão ROLL
+                roll_button = driver.ele("#free_play_form_button")
+                if roll_button:
+                    roll_button.click()
+                    print("Botão ROLL clicado!")
+                else:
+                    print("Botão ROLL não encontrado.")
+            else:
+                print("Captcha não encontrado.")
         except Exception as e:
             print(f"Erro ao interagir com o site: {e}")
 
     finally:
-        driver.quit()
+        driver.close_driver()
 
 if __name__ == "__main__":
     main()
