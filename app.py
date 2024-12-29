@@ -18,11 +18,7 @@ from selenium.common.exceptions import (
 # =============== CONFIGURAÇÕES GERAIS ===============
 
 user_agents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36',  # Chrome Windows
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36',  # Chrome Mac
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:102.0) Gecko/20100101 Firefox/102.0',  # Firefox Windows
-    'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Mobile Safari/537.36',  # Chrome Android
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',  # Safari iPhone
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36',  # Chrome Windows
 ]
 random_user_agent = random.choice(user_agents)
 
@@ -31,16 +27,16 @@ load_dotenv()
 SELENIUM_GRID_URL = os.getenv('SELENIUM_GRID_URL', 'http://localhost:4444/wd/hub')
 
 chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument('--dns-server=8.8.8.8')
+# chrome_options.add_argument('--dns-server=8.8.8.8')
 chrome_options.add_argument("--disable-notifications")
 chrome_options.add_argument(f"user-agent={random_user_agent}")
 chrome_options.add_experimental_option(
     "prefs", {"profile.default_content_setting_values.notifications": 2}
 )
 chrome_options.add_argument("--window-size=1920,1080")
-chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-chrome_options.add_experimental_option('useAutomationExtension', False)
+# chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+# chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+# chrome_options.add_experimental_option('useAutomationExtension', False)
 chrome_options.add_argument("--start-maximized")
 
 driver = None
@@ -253,7 +249,7 @@ try:
         send_balance_to_telegram(driver)
 
         # Clica no botão 'play_without_captchas_button' antes de 'Roll'
-        click_play_without_captcha(driver)
+        # click_play_without_captcha(driver)
 
         # Tenta clicar no botão "Roll"
         if click_roll_button(driver):
