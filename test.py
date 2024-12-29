@@ -96,15 +96,26 @@ def get_time_remaining(driver):
         time_remaining_div = driver.ele('#time_remaining', timeout=10)
         if time_remaining_div:
             time_remaining_text = time_remaining_div.text.replace('\n', ' ')
-            minutes = int(time_remaining_text.split('Minutes')[0].strip())
-            logging.info(f"Time remaining: {minutes} minutes.")
-            return minutes
+            logging.info(f"Raw time_remaining text: {time_remaining_text}")
+            
+            # Tente extrair minutos de maneira mais robusta
+            if "Minutes" in time_remaining_text:
+                minutes_part = time_remaining_text.split('Minutes')[0].strip()
+                if minutes_part.isdigit():
+                    minutes = int(minutes_part)
+                    logging.info(f"Extracted time remaining: {minutes} minutes.")
+                    return minutes
+                else:
+                    logging.warning(f"Minutes part is not a valid integer: {minutes_part}")
+            else:
+                logging.warning("'Minutes' keyword not found in time_remaining text.")
         else:
             logging.warning("'time_remaining' div not found.")
-            return None
+        return None
     except Exception as e:
         logging.error(f"Error getting 'time_remaining': {e}")
         return None
+
 
 def send_balance_to_telegram(driver):
     """
