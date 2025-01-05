@@ -62,7 +62,6 @@ def close_popups(driver):
     Closes any popups or banners on the page.
     """
     try:
-        # Example: Check for the popup and close it
         popup = driver.ele('button:contains("NO THANKS")', timeout=3, show_errmsg=False)
         if popup:
             popup.click()
@@ -98,7 +97,6 @@ def get_time_remaining(driver):
             time_remaining_text = time_remaining_div.text.replace('\n', ' ')
             logging.info(f"Raw time_remaining text: {time_remaining_text}")
             
-            # Tente extrair minutos de maneira mais robusta
             if "Minutes" in time_remaining_text:
                 minutes_part = time_remaining_text.split('Minutes')[0].strip()
                 if minutes_part.isdigit():
@@ -115,7 +113,6 @@ def get_time_remaining(driver):
     except Exception as e:
         logging.error(f"Error getting 'time_remaining': {e}")
         return None
-
 
 def send_balance_to_telegram(driver):
     """
@@ -160,13 +157,14 @@ def main():
         "-deny-permission-prompts",
         "-disable-gpu",
         "-accept-lang=en-US",
+        "--remote-debugging-port=9222"  # Ensure this line is included
     ]
 
     options = get_chromium_options(browser_path, arguments)
 
     while True:
-        driver = ChromiumPage(addr_or_opts=options)
         try:
+            driver = ChromiumPage(addr_or_opts=options)
             logging.info('Navigating to FreeBitco.in.')
             url = 'https://freebitco.in'
             driver.get(url)
@@ -183,21 +181,19 @@ def main():
             # Check if the 'time_remaining' div is present
             time_remaining = get_time_remaining(driver)
             if time_remaining is not None:
-                wait_time = (time_remaining + 1) * 60  # Add 1 minute for safety
+                wait_time = (time_remaining + 1) * 60
                 logging.info(f"Waiting {time_remaining + 1} minutes before retrying.")
                 time.sleep(wait_time)
                 continue
 
-            # If 'time_remaining' is not present, resolve CAPTCHA and click 'Roll'
+            # Resolve CAPTCHA and click 'Roll'
             cf_bypasser = CloudflareBypasser(driver)
             cf_bypasser.click_verification_button()
 
-            # Wait 10 seconds before clicking the 'Roll' button
             logging.info("Waiting 10 seconds before clicking 'Roll' button.")
             time.sleep(10)
 
             if click_roll_button(driver):
-                # Check if 'time_remaining' div appears after clicking
                 time_remaining = get_time_remaining(driver)
                 if time_remaining is not None:
                     send_balance_to_telegram(driver)
@@ -208,14 +204,17 @@ def main():
                     logging.warning("Roll did not complete successfully. Retrying...")
             else:
                 logging.warning("Could not click 'Roll' button. Retrying...")
-
         except Exception as e:
-            logging.error("An error occurred: %s", str(e))
+            logging.error("An error occurred: %s. Restarting browser...", str(e))
+            time.sleep(5)  # Wait before restarting
         finally:
-            logging.info('Closing the browser.')
-            driver.quit()
-            if isHeadless:
-                display.stop()
+            try:
+                logging.info('Closing the browser.')
+                driver.quit()
+                if isHeadless:
+                    display.stop()
+            except Exception as cleanup_error:
+                logging.error(f"Error during browser cleanup: {cleanup_error}")
 
 if __name__ == '__main__':
     main()
