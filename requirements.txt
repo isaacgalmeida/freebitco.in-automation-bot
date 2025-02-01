@@ -1,5 +1,7 @@
 requests
 python-dotenv
+selenium
+webdriver-manager
 #CloudflareBypasser
 DrissionPage
 pyvirtualdisplay
