@@ -59,23 +59,15 @@ def inject_cookies(driver, cookies_file, url):
 
 def close_popups(driver):
     """
-    Closes any popups or banners on the page, including push notifications.
+    Closes any popups or banners on the page.
     """
     try:
-        # Close push notifications with class "push_notification_big"
-        big_notification = driver.ele('.push_notification_big', timeout=3, show_errmsg=False)
-        if big_notification:
-            big_notification.click()
-            logging.info("Closed 'push_notification_big' notification.")
-
-        # Close push notifications with class "push_notification_small"
-        small_notification = driver.ele('.push_notification_small', timeout=3, show_errmsg=False)
-        if small_notification:
-            small_notification.click()
-            logging.info("Closed 'push_notification_small' notification.")
+        popup = driver.ele('button:contains("NO THANKS")', timeout=3, show_errmsg=False)
+        if popup:
+            popup.click()
+            logging.info("Popup closed.")
     except Exception as e:
-        logging.warning(f"Error closing popups or popups not found: {e}")
-
+        logging.warning(f"No popup to close or error closing popup: {e}")
 
 def click_roll_button(driver):
     """
