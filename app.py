@@ -4,6 +4,7 @@ import os
 import json
 import requests
 import platform
+import tempfile
 from dotenv import load_dotenv
 from CloudflareBypasser import CloudflareBypasser
 from DrissionPage import ChromiumPage, ChromiumOptions
@@ -144,9 +145,18 @@ def main():
         display = Display(visible=0, size=(1920, 1080))
         display.start()
 
-    browser_path = os.getenv('CHROME_PATH', "/usr/bin/google-chrome")
+    # Obtém o caminho definido na variável de ambiente
+    browser_path = os.getenv('CHROME_PATH')
+    if not browser_path or not os.path.exists(browser_path):
+        logging.warning("CHROME_PATH não definido ou inválido. Utilizando o Chrome padrão do sistema.")
+        if platform.system() == "Windows":
+            browser_path = "chrome"
+        elif platform.system() == "Darwin":
+            browser_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        else:
+            browser_path = "/usr/bin/google-chrome"
 
-    arguments = [
+    base_arguments = [
         "-no-first-run",
         "-force-color-profile=srgb",
         "-metrics-recording-only",
@@ -163,14 +173,20 @@ def main():
         "--remote-debugging-port=9222"
     ]
 
-    # Se o modo headless estiver ativo, adiciona o argumento para execução sem interface gráfica.
     if isHeadless:
-        arguments.append("--headless")
-
-    options = get_chromium_options(browser_path, arguments)
+        base_arguments.append("--headless")
 
     while True:
+        # Cria um diretório de perfil temporário exclusivo para forçar uma nova instância
+        user_data_dir = tempfile.mkdtemp(prefix="drission_profile_")
+        # Copia os argumentos base e adiciona o user-data-dir
+        arguments = base_arguments.copy()
+        arguments.append(f"--user-data-dir={user_data_dir}")
+        
+        # Cria as opções a cada iteração para garantir que o navegador configurado seja utilizado
+        options = get_chromium_options(browser_path, arguments)
         browser_closed = False  # Flag para indicar se o browser já foi fechado nesta iteração
+        
         try:
             driver = ChromiumPage(addr_or_opts=options)
             logging.info('Navegando para FreeBitco.in.')
