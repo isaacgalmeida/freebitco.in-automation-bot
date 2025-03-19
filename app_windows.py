@@ -12,6 +12,11 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 # Carrega as variáveis de ambiente
 load_dotenv()
 
+def sleep_until(seconds):
+    target = time.time() + seconds
+    while time.time() < target:
+        time.sleep(1)  # dorme em intervalos curtos
+
 # Configura o logging
 logging.basicConfig(
     level=logging.INFO,
@@ -243,7 +248,7 @@ def main():
                 logging.info(f"Roll já efetuado. Aguardando {time_remaining + 1} minutos antes de tentar novamente.")
                 driver.quit()
                 browser_closed = True
-                time.sleep(wait_time)
+                sleep_until(wait_time)
                 continue
 
             cf_bypasser = CloudflareBypasser(driver)
@@ -261,7 +266,7 @@ def main():
                     driver.quit()
                     browser_closed = True
                     logging.info(f"Aguardando {time_remaining + 1} minutos antes de tentar novamente.")
-                    time.sleep(wait_time)
+                    sleep_until(wait_time)
                     continue
                 else:
                     logging.warning("Roll não completado com sucesso. Tentando novamente...")
