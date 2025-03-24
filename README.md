@@ -58,10 +58,10 @@ CHROME_PATH=/caminho/para/google-chrome
 
 ### 4. **Executar o Bot**
 
-Execute o script principal `app.py`:
+Execute o script principal `app_windows.py`:
 
 ```bash
-python app.py
+python app_windows.py
 ```
 
 ---
