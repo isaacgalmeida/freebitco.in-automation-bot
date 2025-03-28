@@ -1,4 +1,4 @@
-import time
+import time 
 import logging
 import os
 import json
@@ -11,6 +11,11 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 
 # Carrega as variáveis de ambiente
 load_dotenv()
+
+def sleep_until(seconds):
+    target = time.time() + seconds
+    while time.time() < target:
+        time.sleep(1)  # dorme em intervalos curtos
 
 # Configura o logging
 logging.basicConfig(
@@ -30,6 +35,12 @@ def get_chromium_options(browser_path: str, arguments: list) -> ChromiumOptions:
     options.set_paths(browser_path=browser_path)
     for argument in arguments:
         options.set_argument(argument)
+
+    # Adicionando os três argumentos solicitados
+    options.set_argument('--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"')
+    options.set_argument('--disable-blink-features=AutomationControlled')
+    options.set_argument('--disable-infobars')
+
     return options
 
 def inject_cookies(driver, cookies_file, url):
@@ -135,10 +146,34 @@ def send_balance_to_telegram(driver):
     except Exception as e:
         logging.error(f"Erro ao enviar saldo para o Telegram: {e}")
 
+def minimize_window_windows():
+    """
+    Utiliza pywin32 para minimizar a janela do navegador no Windows.
+    """
+    try:
+        import win32gui
+        import win32con
+
+        # Se quiser evitar "abrir e depois minimizar", você pode remover ou reduzir esse sleep,
+        # pois, quanto maior ele for, mais tempo a janela aparece antes de minimizar.
+        time.sleep(1)  # Se quiser reduzir, diminua para 0.5 ou 0
+
+        def enumHandler(hwnd, lParam):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                # Ajuste a verificação conforme o título do seu navegador (Ex.: "Chrome", "Brave", etc.)
+                if "Brave" in title:
+                    win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+                    logging.info(f"Janela '{title}' minimizada via win32gui.")
+
+        win32gui.EnumWindows(enumHandler, None)
+    except Exception as e:
+        logging.error(f"Erro ao minimizar a janela com win32gui: {e}")
+
 def main():
     isHeadless = os.getenv('HEADLESS', 'false').lower() == 'true'
     
-    # Inicia o display virtual apenas se o modo headless estiver ativo e o SO não for Windows
+    # Se estiver em headless e não for Windows, inicia o display virtual
     display = None
     if isHeadless and platform.system() != 'Windows':
         from pyvirtualdisplay import Display
@@ -175,20 +210,26 @@ def main():
 
     if isHeadless:
         base_arguments.append("--headless")
+    else:
+        # Inicia a janela minimizada
+        base_arguments.append("--start-minimized")
 
     while True:
-        # Cria um diretório de perfil temporário exclusivo para forçar uma nova instância
+        # Cria um diretório de perfil temporário para forçar uma nova instância
         user_data_dir = tempfile.mkdtemp(prefix="drission_profile_")
-        # Copia os argumentos base e adiciona o user-data-dir
         arguments = base_arguments.copy()
         arguments.append(f"--user-data-dir={user_data_dir}")
         
-        # Cria as opções a cada iteração para garantir que o navegador configurado seja utilizado
         options = get_chromium_options(browser_path, arguments)
-        browser_closed = False  # Flag para indicar se o browser já foi fechado nesta iteração
+        browser_closed = False
         
         try:
             driver = ChromiumPage(addr_or_opts=options)
+            
+            # ▲ Antes de carregar a página, minimize a janela (caso Windows e não headless)
+            if platform.system() == "Windows" and not isHeadless:
+                minimize_window_windows()
+
             logging.info('Navegando para FreeBitco.in.')
             url = 'https://freebitco.in'
             driver.get(url)
@@ -199,20 +240,17 @@ def main():
             else:
                 logging.warning("Cookies não puderam ser aplicados. Verifique o arquivo cookies.json.")
 
-            # Fecha pop-ups, se houver
             close_popups(driver)
 
-            # Verifica se a div 'time_remaining' já existe (indica que o roll já foi feito)
             time_remaining = get_time_remaining(driver)
             if time_remaining is not None:
                 wait_time = (time_remaining + 1) * 60
                 logging.info(f"Roll já efetuado. Aguardando {time_remaining + 1} minutos antes de tentar novamente.")
                 driver.quit()
                 browser_closed = True
-                time.sleep(wait_time)
+                sleep_until(wait_time)
                 continue
 
-            # Resolve o CAPTCHA e clica no botão 'Roll'
             cf_bypasser = CloudflareBypasser(driver)
             cf_bypasser.click_verification_button()
 
@@ -228,15 +266,17 @@ def main():
                     driver.quit()
                     browser_closed = True
                     logging.info(f"Aguardando {time_remaining + 1} minutos antes de tentar novamente.")
-                    time.sleep(wait_time)
+                    sleep_until(wait_time)
                     continue
                 else:
                     logging.warning("Roll não completado com sucesso. Tentando novamente...")
             else:
                 logging.warning("Não foi possível clicar no botão 'Roll'. Tentando novamente...")
+
         except Exception as e:
             logging.error("Ocorreu um erro: %s. Reiniciando o browser...", str(e))
-            time.sleep(5)  # Aguarda antes de reiniciar
+            time.sleep(5)
+
         finally:
             try:
                 if not browser_closed:
