@@ -36,8 +36,10 @@ def get_chromium_options(browser_path: str, arguments: list) -> ChromiumOptions:
     for argument in arguments:
         options.set_argument(argument)
 
-    # Adicionando os três argumentos solicitados
-    options.set_argument('--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"')
+    # Ajuste no user-agent para evitar aspas dentro de aspas
+    options.set_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                         'AppleWebKit/537.36 (KHTML, like Gecko) '
+                         'Chrome/134.0.0.0 Safari/537.36')
     options.set_argument('--disable-blink-features=AutomationControlled')
     options.set_argument('--disable-infobars')
 
@@ -75,7 +77,8 @@ def close_popups(driver):
     Fecha quaisquer pop-ups ou banners na página.
     """
     try:
-        popup = driver.ele('button:contains("NO THANKS")', timeout=3, show_errmsg=False)
+        # Remova o show_errmsg=False, pois não é suportado na versão 4.1.0.17
+        popup = driver.ele('button:contains("NO THANKS")', timeout=3)
         if popup:
             popup.click()
             logging.info("Popup fechado.")
@@ -149,14 +152,13 @@ def send_balance_to_telegram(driver):
 def minimize_window_windows():
     """
     Utiliza pywin32 para minimizar a janela do navegador no Windows.
+    Caso não queira instalar pywin32, comente ou remova esta função.
     """
     try:
         import win32gui
         import win32con
 
-        # Se quiser evitar "abrir e depois minimizar", você pode remover ou reduzir esse sleep,
-        # pois, quanto maior ele for, mais tempo a janela aparece antes de minimizar.
-        time.sleep(1)  # Se quiser reduzir, diminua para 0.5 ou 0
+        time.sleep(1)
 
         def enumHandler(hwnd, lParam):
             if win32gui.IsWindowVisible(hwnd):
@@ -173,14 +175,25 @@ def minimize_window_windows():
 def check_internal_server_error(driver):
     """
     Verifica se a página carregada contém o erro 500 Internal Server Error.
+    Tenta obter o HTML via driver.html; se isso falhar, utiliza execute_script.
     """
     try:
-        page_source = driver.source
-        if "Internal Server Error" in page_source:
+        time.sleep(5)  # aguarda alguns segundos para a página carregar
+        try:
+            # Tenta obter o HTML pelo método padrão do DrissionPage
+            page_source = driver.html
+        except Exception as e:
+            logging.error(f"driver.html falhou: {e}. Tentando com execute_script...")
+            page_source = driver.driver.execute_script("return document.documentElement.outerHTML")
+        
+        logging.info(f"HTML retornado:\n{page_source}")
+        
+        if "Internal Server Error" in page_source or "500 Internal Server Error" in page_source:
             return True
     except Exception as e:
         logging.error(f"Erro ao verificar status da página: {e}")
     return False
+
 
 def main():
     isHeadless = os.getenv('HEADLESS', 'false').lower() == 'true'
@@ -238,20 +251,14 @@ def main():
         try:
             driver = ChromiumPage(addr_or_opts=options)
             
-            # ▲ Antes de carregar a página, minimize a janela (caso Windows e não headless)
+            # Minimize a janela (somente Windows e não headless).
+            # Se não quiser instalar pywin32, comente a linha abaixo.
             if platform.system() == "Windows" and not isHeadless:
                 minimize_window_windows()
 
             logging.info('Navegando para FreeBitco.in.')
             url = 'https://freebitco.in'
             driver.get(url)
-            
-            # Verifica se a página retornou erro 500
-            if check_internal_server_error(driver):
-                logging.error("Erro 500 Internal Server Error detectado. Fechando o browser e aguardando 10 minutos.")
-                driver.quit()
-                sleep_until(600)  # aguarda 600 segundos (10 minutos)
-                continue
 
             cookies_file = "cookies.json"
             if inject_cookies(driver, cookies_file, url):
@@ -260,6 +267,13 @@ def main():
                 logging.warning("Cookies não puderam ser aplicados. Verifique o arquivo cookies.json.")
 
             close_popups(driver)
+
+                        # Verifica se a página retornou erro 500
+            if check_internal_server_error(driver):
+                logging.error("Erro 500 Internal Server Error detectado. Fechando o browser e aguardando 10 minutos.")
+                driver.quit()
+                sleep_until(600)  # aguarda 600 segundos (10 minutos)
+                continue
 
             time_remaining = get_time_remaining(driver)
             if time_remaining is not None:

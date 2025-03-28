@@ -1,5 +1,6 @@
 import time
 from DrissionPage import ChromiumPage
+# https://github.com/sarperavci/CloudflareBypassForScraping
 
 class CloudflareBypasser:
     def __init__(self, driver: ChromiumPage, max_retries=-1, log=True):
