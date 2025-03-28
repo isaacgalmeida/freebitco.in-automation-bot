@@ -186,7 +186,7 @@ def check_internal_server_error(driver):
             logging.error(f"driver.html falhou: {e}. Tentando com execute_script...")
             page_source = driver.driver.execute_script("return document.documentElement.outerHTML")
         
-        logging.info(f"HTML retornado:\n{page_source}")
+        #logging.info(f"HTML retornado:\n{page_source}")
         
         if "Internal Server Error" in page_source or "500 Internal Server Error" in page_source:
             return True
