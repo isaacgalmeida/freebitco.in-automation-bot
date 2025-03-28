@@ -176,7 +176,7 @@ def check_internal_server_error(driver):
     """
     try:
         page_source = driver.source
-        if "500 Internal Server Error" in page_source:
+        if "Internal Server Error" in page_source:
             return True
     except Exception as e:
         logging.error(f"Erro ao verificar status da página: {e}")
