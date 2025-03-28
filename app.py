@@ -170,6 +170,18 @@ def minimize_window_windows():
     except Exception as e:
         logging.error(f"Erro ao minimizar a janela com win32gui: {e}")
 
+def check_internal_server_error(driver):
+    """
+    Verifica se a página carregada contém o erro 500 Internal Server Error.
+    """
+    try:
+        page_source = driver.source
+        if "500 Internal Server Error" in page_source:
+            return True
+    except Exception as e:
+        logging.error(f"Erro ao verificar status da página: {e}")
+    return False
+
 def main():
     isHeadless = os.getenv('HEADLESS', 'false').lower() == 'true'
     
@@ -233,6 +245,13 @@ def main():
             logging.info('Navegando para FreeBitco.in.')
             url = 'https://freebitco.in'
             driver.get(url)
+            
+            # Verifica se a página retornou erro 500
+            if check_internal_server_error(driver):
+                logging.error("Erro 500 Internal Server Error detectado. Fechando o browser e aguardando 10 minutos.")
+                driver.quit()
+                sleep_until(600)  # aguarda 600 segundos (10 minutos)
+                continue
 
             cookies_file = "cookies.json"
             if inject_cookies(driver, cookies_file, url):
