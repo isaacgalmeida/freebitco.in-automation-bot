@@ -137,7 +137,14 @@ def send_balance_to_telegram(driver):
     try:
         balance = driver.ele("#balance", timeout=10).text
         time_remaining = driver.ele("#time_remaining", timeout=10).text.replace('\n', ' ')
-
+        
+        index_minutes = time_remaining.find("Minutes")
+        if index_minutes != -1:
+            end_index = index_minutes + len("Minutes")
+            # Verifica se existe um caractere após "Minutes" e se ele não é um espaço
+            if end_index < len(time_remaining) and time_remaining[end_index] != " ":
+                time_remaining = time_remaining[:end_index] + " " + time_remaining[end_index:]
+        
         telegram_token = os.getenv("TELEGRAM_TOKEN")
         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
