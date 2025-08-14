@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  freebitcoin-bot:
+    image: selenium/standalone-chrome:131.0-20241225
+    container_name: freebitcoin-bot
+    ports:
+      - "4444:4444" # WebDriver port
+      - "7900:7900" # VNC port for manual intervention
+    volumes:
+      - ./:/app # Mount entire project directory
+      - /dev/shm:/dev/shm # Shared memory for Chrome
+    environment:
+      # Selenium Grid settings
+      - SE_VNC_PASSWORD=freebitcoin123
+      - SE_VNC_VIEW_ONLY=false
+      - SE_SESSION_TIMEOUT=0
+      - SE_SESSION_REQUEST_TIMEOUT=0
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false
+      - SE_SESSION_RETRY_INTERVAL=5
+      - SE_GRID_TIMEOUT=300000
+
+      # Bot configuration
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - HEADLESS=false # Set to false so you can see via VNC
+      - CHROME_PATH=/usr/bin/google-chrome
+
+    working_dir: /app
+    command: >
+      bash -c "
+        echo 'Installing Python dependencies...' &&
+        apt-get update &&
+        apt-get install -y python3 python3-pip &&
+        pip3 install -r requirements.txt &&
+        echo 'Starting FreeBitco.in bot...' &&
+        python3 app_docker.py
+      "
+    restart: unless-stopped
+    shm_size: "2g"
+    cpus: "1.0"
+    mem_limit: 2g
+
+  # Optional: Separate container for cookie generation
+  cookie-generator:
+    image: selenium/standalone-chrome:131.0-20241225
+    container_name: cookie-generator
+    ports:
+      - "7901:7900" # Different VNC port
+    volumes:
+      - ./:/app
+    environment:
+      - SE_VNC_PASSWORD=cookies123
+      - SE_VNC_VIEW_ONLY=false
+    working_dir: /app
+    command: >
+      bash -c "
+        apt-get update &&
+        apt-get install -y python3 python3-pip &&
+        pip3 install selenium webdriver-manager &&
+        echo 'Cookie generator ready. Connect via VNC and run: python3 getcookies.py' &&
+        tail -f /dev/null
+      "
+    profiles: ["cookie-gen"] # Only start when explicitly requested
