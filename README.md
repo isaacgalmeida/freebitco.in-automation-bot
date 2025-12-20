@@ -9,6 +9,7 @@ Este é um projeto para automatizar a interação com o site [FreeBitco.in](http
 - **Python 3.8+**
 - **Google Chrome** instalado no sistema.
 - **Pacotes Python** listados em `requirements.txt`.
+- https://github.com/sarperavci/CloudflareBypassForScraping
 
 ---
 
