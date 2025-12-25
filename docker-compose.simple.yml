@@ -4,6 +4,7 @@ services:
   freebitcoin-bot:
     image: selenium/standalone-chrome:131.0-20241225
     container_name: freebitcoin-bot
+    user: root
     volumes:
       # Map your existing project files
       - ./app.py:/app/app.py:ro # Your working app.py
@@ -22,11 +23,8 @@ services:
     working_dir: /app
     command: >
       bash -c "
-        echo '🚀 Installing Python dependencies...' &&
-        apt-get update -qq &&
-        apt-get install -y -qq python3 python3-pip &&
-        pip3 install --quiet --no-cache-dir -r requirements.txt &&
         echo '🤖 Starting FreeBitco.in bot...' &&
+        pip3 install --quiet --no-cache-dir -r requirements.txt &&
         python3 app.py
       "
     restart: unless-stopped
