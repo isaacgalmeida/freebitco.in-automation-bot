@@ -1,0 +1,26 @@
+services:
+  cookie-generator:
+    image: selenium/standalone-chrome:131.0-20241225
+    container_name: cookie-generator
+    ports:
+      - "7900:7900" # VNC port
+      - "4444:4444" # WebDriver port
+    volumes:
+      - ./getcookies.py:/app/getcookies.py:ro
+      - ./cookies.json:/app/cookies.json:rw
+      - /dev/shm:/dev/shm
+    environment:
+      - SE_VNC_PASSWORD=cookies123
+      - SE_VNC_VIEW_ONLY=false
+      - PYTHONUNBUFFERED=1
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '🍪 Cookie generator ready!' &&
+        echo '📱 Connect via VNC at http://your-vps-ip:7900' &&
+        echo '🔑 VNC Password: cookies123' &&
+        echo '⚡ Then run: python3 getcookies.py' &&
+        pip3 install --quiet --break-system-packages selenium webdriver-manager &&
+        tail -f /dev/null
+      "
+    shm_size: "1g"
