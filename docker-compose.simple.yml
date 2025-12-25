@@ -24,7 +24,7 @@ services:
     command: >
       bash -c "
         echo '🤖 Starting FreeBitco.in bot...' &&
-        pip3 install --quiet --no-cache-dir -r requirements.txt &&
+        pip3 install --quiet --no-cache-dir --break-system-packages -r requirements.txt &&
         python3 app.py
       "
     restart: unless-stopped
