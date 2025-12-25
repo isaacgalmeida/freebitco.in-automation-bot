@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  freebitcoin-bot:
+    image: python:3.11-slim
+    container_name: freebitcoin-bot
+    volumes:
+      # Map your existing project files
+      - ./app.py:/app/app.py:ro # Your working app.py
+      - ./CloudflareBypasser.py:/app/CloudflareBypasser.py:ro
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./.env:/app/.env:ro # Environment variables
+      - ./cookies.json:/app/cookies.json:rw # Authentication cookies
+      - ./cloudflare_bypass.log:/app/cloudflare_bypass.log:rw # Log file
+      - /dev/shm:/dev/shm # Shared memory for Chrome
+    environment:
+      # Python environment
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - DISPLAY=:99
+
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '🚀 Installing system dependencies...' &&
+        apt-get update -qq &&
+        apt-get install -y -qq 
+          wget 
+          gnupg 
+          unzip 
+          curl 
+          xvfb 
+          fonts-liberation 
+          libasound2 
+          libatk-bridge2.0-0 
+          libdrm2 
+          libxcomposite1 
+          libxdamage1 
+          libxrandr2 
+          libgbm1 
+          libxss1 
+          libu2f-udev 
+          libvulkan1 &&
+        echo '🌐 Installing Google Chrome...' &&
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - &&
+        echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list &&
+        apt-get update -qq &&
+        apt-get install -y -qq google-chrome-stable &&
+        echo '🐍 Installing Python dependencies...' &&
+        pip install --quiet --no-cache-dir -r requirements.txt &&
+        echo '🖥️ Starting virtual display...' &&
+        Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 & &&
+        echo '🤖 Starting FreeBitco.in bot...' &&
+        python3 app.py
+      "
+    restart: unless-stopped
+    shm_size: "2g"
+    cpus: "1.0"
+    mem_limit: 2g

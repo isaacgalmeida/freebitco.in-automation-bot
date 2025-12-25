@@ -1,0 +1,82 @@
+version: "3.8"
+
+services:
+  freebitcoin-bot:
+    image: selenium/standalone-chrome:131.0-20241225
+    container_name: freebitcoin-bot
+    ports:
+      - "4444:4444" # WebDriver port
+      - "7900:7900" # VNC port for monitoring
+    volumes:
+      # Map your existing project files
+      - ./app.py:/app/app.py:ro # Your working app.py
+      - ./CloudflareBypasser.py:/app/CloudflareBypasser.py:ro
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./.env:/app/.env:ro # Environment variables
+      - ./cookies.json:/app/cookies.json:rw # Authentication cookies
+      - ./logs:/app/logs # Log directory (create if needed)
+      - /dev/shm:/dev/shm # Shared memory for Chrome
+    environment:
+      # Selenium Grid settings
+      - SE_VNC_PASSWORD=freebitcoin123
+      - SE_VNC_VIEW_ONLY=false
+      - SE_SESSION_TIMEOUT=0
+      - SE_SESSION_REQUEST_TIMEOUT=0
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_ENABLE_BROWSER_LEFTOVERS_CLEANUP=false
+      - SE_SESSION_RETRY_INTERVAL=5
+      - SE_GRID_TIMEOUT=300000
+
+      # Python environment
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+
+    working_dir: /app
+    command: >
+      bash -c "
+        echo 'Installing Python dependencies...' &&
+        apt-get update -qq &&
+        apt-get install -y -qq python3 python3-pip &&
+        pip3 install --quiet -r requirements.txt &&
+        echo 'Starting FreeBitco.in bot with your existing app.py...' &&
+        python3 app.py
+      "
+    restart: unless-stopped
+    shm_size: "2g"
+    cpus: "1.0"
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Cookie generator service (run when needed)
+  cookie-generator:
+    image: selenium/standalone-chrome:131.0-20241225
+    container_name: cookie-generator
+    ports:
+      - "7901:7900" # Different VNC port
+    volumes:
+      - ./getcookies.py:/app/getcookies.py:ro
+      - ./cookies.json:/app/cookies.json:rw # Output cookies here
+      - /dev/shm:/dev/shm
+    environment:
+      - SE_VNC_PASSWORD=cookies123
+      - SE_VNC_VIEW_ONLY=false
+      - PYTHONUNBUFFERED=1
+    working_dir: /app
+    command: >
+      bash -c "
+        apt-get update -qq &&
+        apt-get install -y -qq python3 python3-pip &&
+        pip3 install --quiet selenium webdriver-manager &&
+        echo 'Cookie generator ready!' &&
+        echo 'Connect via VNC at http://your-unraid-ip:7901 (password: cookies123)' &&
+        echo 'Then run: python3 getcookies.py' &&
+        tail -f /dev/null
+      "
+    profiles: ["cookie-gen"] # Only start when explicitly requested
+    shm_size: "1g"
