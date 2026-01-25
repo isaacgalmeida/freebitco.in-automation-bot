@@ -1,3 +1,4 @@
+from datetime import datetime
 import time 
 import logging
 import os
@@ -130,31 +131,90 @@ def get_time_remaining(driver):
         logging.error(f"Erro ao obter 'time_remaining': {e}")
         return None
 
+TELEGRAM_STATE_FILE = "telegram_last_send.json"
+
+def _today_str():
+    return datetime.now().strftime("%Y-%m-%d")
+
+def _already_sent_today(state_file: str = TELEGRAM_STATE_FILE) -> bool:
+    try:
+        if not os.path.exists(state_file):
+            return False
+        with open(state_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("last_sent_date") == _today_str()
+    except Exception as e:
+        logging.warning(f"Falha ao ler estado de envio do Telegram: {e}")
+        return False
+
+def _mark_sent_today(state_file: str = TELEGRAM_STATE_FILE):
+    try:
+        with open(state_file, "w", encoding="utf-8") as f:
+            json.dump({"last_sent_date": _today_str()}, f)
+    except Exception as e:
+        logging.warning(f"Falha ao salvar estado de envio do Telegram: {e}")
+
 def send_balance_to_telegram(driver):
     """
-    Envia o saldo atual e o tempo restante para o Telegram.
+    Envia o saldo atual e o tempo restante para o Telegram apenas 1x por dia.
     """
+    if _already_sent_today():
+        logging.info("Mensagem do Telegram já foi enviada hoje. Pulando envio.")
+        return
+
     try:
         balance = driver.ele("#balance", timeout=10).text
         time_remaining = driver.ele("#time_remaining", timeout=10).text.replace('\n', ' ')
-        
+
         index_minutes = time_remaining.find("Minutes")
         if index_minutes != -1:
             end_index = index_minutes + len("Minutes")
-            # Verifica se existe um caractere após "Minutes" e se ele não é um espaço
             if end_index < len(time_remaining) and time_remaining[end_index] != " ":
                 time_remaining = time_remaining[:end_index] + " " + time_remaining[end_index:]
-        
+
         telegram_token = os.getenv("TELEGRAM_TOKEN")
         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
         if telegram_token and telegram_chat_id:
             message = f"BTC Balance: {balance}\nTime Remaining: {time_remaining}"
             url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-            requests.post(url, data={"chat_id": telegram_chat_id, "text": message})
-            logging.info("Saldo e tempo restante enviados para o Telegram.")
+
+            resp = requests.post(url, data={"chat_id": telegram_chat_id, "text": message}, timeout=20)
+            if resp.status_code == 200:
+                logging.info("Saldo e tempo restante enviados para o Telegram (1x por dia).")
+                _mark_sent_today()
+            else:
+                logging.error(f"Falha ao enviar Telegram: HTTP {resp.status_code} - {resp.text}")
+        else:
+            logging.warning("TELEGRAM_TOKEN ou TELEGRAM_CHAT_ID não configurados.")
     except Exception as e:
         logging.error(f"Erro ao enviar saldo para o Telegram: {e}")
+
+# def send_balance_to_telegram(driver):
+#     """
+#     Envia o saldo atual e o tempo restante para o Telegram.
+#     """
+#     try:
+#         balance = driver.ele("#balance", timeout=10).text
+#         time_remaining = driver.ele("#time_remaining", timeout=10).text.replace('\n', ' ')
+        
+#         index_minutes = time_remaining.find("Minutes")
+#         if index_minutes != -1:
+#             end_index = index_minutes + len("Minutes")
+#             # Verifica se existe um caractere após "Minutes" e se ele não é um espaço
+#             if end_index < len(time_remaining) and time_remaining[end_index] != " ":
+#                 time_remaining = time_remaining[:end_index] + " " + time_remaining[end_index:]
+        
+#         telegram_token = os.getenv("TELEGRAM_TOKEN")
+#         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+#         if telegram_token and telegram_chat_id:
+#             message = f"BTC Balance: {balance}\nTime Remaining: {time_remaining}"
+#             url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+#             requests.post(url, data={"chat_id": telegram_chat_id, "text": message})
+#             logging.info("Saldo e tempo restante enviados para o Telegram.")
+#     except Exception as e:
+#         logging.error(f"Erro ao enviar saldo para o Telegram: {e}")
 
 def minimize_window_windows():
     """
